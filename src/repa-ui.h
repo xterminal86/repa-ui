@@ -193,7 +193,7 @@ namespace RepaUI
 
       const SDL_Rect& Transform()
       {
-        return _transform;
+        return (_owner == nullptr) ? _transform : _localTransform;
       }
 
       void SetTransform(const SDL_Rect& transform);
@@ -226,6 +226,16 @@ namespace RepaUI
             else if (_mouseEnter && !IsMouseInside(evt))
             {
               _mouseEnter = false;
+
+              if (CanBeCalled(_onMouseOutIntl))
+              {
+                _onMouseOutIntl(this);
+              }
+
+              if (CanBeCalled(OnMouseOut))
+              {
+                OnMouseOut(this);
+              }
             }
           }
           break;
@@ -282,6 +292,7 @@ namespace RepaUI
       std::function<void(Element*)> OnMouseDown;
       std::function<void(Element*)> OnMouseUp;
       std::function<void(Element*)> OnMouseHover;
+      std::function<void(Element*)> OnMouseOut;
 
     protected:
       bool IsMouseInside(const SDL_Event& evt);
@@ -326,6 +337,7 @@ namespace RepaUI
       }
 
       SDL_Rect _transform;
+      SDL_Rect _localTransform;
 
       SDL_Renderer* _rendRef = nullptr;
 
@@ -341,6 +353,7 @@ namespace RepaUI
       std::function<void(Element*)> _onMouseDownIntl;
       std::function<void(Element*)> _onMouseUpIntl;
       std::function<void(Element*)> _onMouseHoverIntl;
+      std::function<void(Element*)> _onMouseOutIntl;
 
       Canvas* _owner = nullptr;
 
@@ -376,6 +389,7 @@ namespace RepaUI
       void SetTransform(const SDL_Rect& transform)
       {
         Element::SetTransform(transform);
+        Element::UpdateTransform();
 
         _bgImageDst = _transform;
 
@@ -464,21 +478,23 @@ namespace RepaUI
 
   void Element::SetTransform(const SDL_Rect& transform)
   {
-    _transform = transform;
-
-    SetOutline();
+    _localTransform = transform;
   }
 
   void Element::UpdateTransform()
   {
-    if (_owner != nullptr)
+    if (_owner == nullptr)
     {
-      auto& pt = _owner->_transform;
+      _transform = _localTransform;
+    }
+    else
+    {
+      auto& pt = _owner->Transform();
 
-      SDL_Rect prev = _transform;
-
-      _transform.x = pt.x + prev.x;
-      _transform.y = pt.y + prev.y;
+      _transform.x = _localTransform.x + pt.x;
+      _transform.y = _localTransform.y + pt.y;
+      _transform.w = _localTransform.w;
+      _transform.h = _localTransform.h;
     }
 
     SetOutline();
