@@ -37,27 +37,30 @@ namespace RepaUI
         return instance;
       }
 
-      void Init(SDL_Renderer* rendRef)
+      void Init(SDL_Renderer* rendRef, SDL_Window* windowRef)
       {
         if (_initialized)
         {
           return;
         }
 
-        _rendRef = rendRef;
+        _rendRef   = rendRef;
+        _windowRef = windowRef;
 
+        SDL_GetWindowSize(_windowRef, &_windowWidth, &_windowHeight);
+
+        CreateScreenCanvas();
         PrepareImages();
 
         _initialized = true;
       }
 
       void HandleEvents(const SDL_Event& evt);
-      void Draw(bool debugMode = false);
+      void Draw();
 
       // =======================================================================
       Canvas* CreateCanvas(const SDL_Rect& transform,
-                           SDL_Texture* bgImage,
-                           Canvas* parent);
+                           SDL_Texture* bgImage);
       Image* CreateImage(Canvas* canvas,
                           const SDL_Rect& transform,
                           SDL_Texture* image);
@@ -130,7 +133,10 @@ namespace RepaUI
         }
       }
 
+      void CreateScreenCanvas();
+
       SDL_Renderer* _rendRef = nullptr;
+      SDL_Window* _windowRef = nullptr;
 
       SDL_Texture* _font = nullptr;
 
@@ -141,12 +147,17 @@ namespace RepaUI
 
       bool _initialized = false;
 
+      int _windowWidth  = 0;
+      int _windowHeight = 0;
+
       const int FontW = 8;
       const int FontH = 16;
 
       uint64_t _globalId = 0;
 
       std::map<uint64_t, std::unique_ptr<Canvas>> _canvases;
+
+      Canvas* _screenCanvas = nullptr;
 
       SDL_Rect _currentClipRect;
 
@@ -186,6 +197,11 @@ namespace RepaUI
         return _visible;
       }
 
+      void ShowOutline(bool value)
+      {
+        _showOutline = value;
+      }
+
       const uint64_t& Id()
       {
         return _id;
@@ -200,7 +216,7 @@ namespace RepaUI
 
       void HandleEvents(const SDL_Event& evt)
       {
-        if (!_enabled)
+        if (!_enabled || !_visible)
         {
           return;
         }
@@ -276,13 +292,13 @@ namespace RepaUI
         }
       }
 
-      void Draw(bool debugMode = false)
+      void Draw()
       {
         if (_visible)
         {
           DrawImpl();
 
-          if (debugMode)
+          if (_showOutline)
           {
             DrawOutline();
           }
@@ -347,8 +363,9 @@ namespace RepaUI
 
       bool _mouseEnter = false;
 
-      bool _enabled = true;
-      bool _visible = true;
+      bool _enabled     = true;
+      bool _visible     = true;
+      bool _showOutline = false;
 
       std::function<void(Element*)> _onMouseDownIntl;
       std::function<void(Element*)> _onMouseUpIntl;
@@ -368,9 +385,8 @@ namespace RepaUI
     public:
       Canvas(const SDL_Rect& transform,
              SDL_Renderer* rendRef,
-             SDL_Texture* bgImage,
-             Canvas* parent = nullptr)
-        : Element(parent, transform, rendRef)
+             SDL_Texture* bgImage)
+        : Element(nullptr, transform, rendRef)
       {
         _bgImage    = bgImage;
         _bgImageDst = _transform;
@@ -378,6 +394,11 @@ namespace RepaUI
 
       void HandleEvents(const SDL_Event& evt)
       {
+        if (!_enabled || !_visible)
+        {
+          return;
+        }
+
         Element::HandleEvents(evt);
 
         for (auto& kvp : _elements)
@@ -399,9 +420,14 @@ namespace RepaUI
         }
       }
 
-      void Draw(bool debugMode)
+      void Draw()
       {
-        Element::Draw(debugMode);
+        if (!_visible)
+        {
+          return;
+        }
+
+        Element::Draw();
 
         Manager::Get().PushClipRect();
 
@@ -409,7 +435,7 @@ namespace RepaUI
 
         for (auto& kvp : _elements)
         {
-          kvp.second->Draw(debugMode);
+          kvp.second->Draw();
         }
 
         Manager::Get().PopClipRect();
@@ -522,6 +548,12 @@ namespace RepaUI
     return (insideClipRect && insideTransform);
   }
 
+  void Manager::CreateScreenCanvas()
+  {
+    Canvas* screen = CreateCanvas({ 0, 0, _windowWidth, _windowHeight }, nullptr);
+    _screenCanvas = screen;
+  }
+
   // ===========================================================================
   //                              IMAGE
   // ===========================================================================
@@ -567,13 +599,11 @@ namespace RepaUI
   //                           GUI ELEMENTS CREATION
   // ===========================================================================
   Canvas* Manager::CreateCanvas(const SDL_Rect& transform,
-                                SDL_Texture* bgImage,
-                                Canvas* parent)
+                                SDL_Texture* bgImage)
   {
     std::unique_ptr<Canvas> canvas = std::make_unique<Canvas>(transform,
                                                               _rendRef,
-                                                              bgImage,
-                                                              parent);
+                                                              bgImage);
     uint64_t id = canvas->Id();
     _canvases[id] = std::move(canvas);
     return _canvases[id].get();
@@ -583,26 +613,22 @@ namespace RepaUI
                             const SDL_Rect& transform,
                             SDL_Texture* image)
   {
-    if (canvas == nullptr)
-    {
-      SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Canvas is null!");
-      return nullptr;
-    }
-
-    Image* img = new Image(canvas, image, transform, _rendRef);
-
-    return static_cast<Image*>(canvas->Add(img));
+    Canvas* c = (canvas == nullptr) ? _screenCanvas : canvas;
+    Image* img = new Image(c, image, transform, _rendRef);
+    return static_cast<Image*>(c->Add(img));
   }
 
   // ===========================================================================
   //                             IMPLEMENTATIONS
   // ===========================================================================
-  void Manager::Draw(bool debugMode)
+  void Manager::Draw()
   {
     for (auto& kvp : _canvases)
     {
-      kvp.second->Draw(debugMode);
+      kvp.second->Draw();
     }
+
+    _screenCanvas->Draw();
   }
 
   void Manager::HandleEvents(const SDL_Event& evt)
@@ -625,9 +651,9 @@ namespace RepaUI
   // ===========================================================================
   //                              SHORTCUTS
   // ===========================================================================
-  void Init(SDL_Renderer* rendRef)
+  void Init(SDL_Renderer* rendRef, SDL_Window* screenRef)
   {
-    Manager::Get().Init(rendRef);
+    Manager::Get().Init(rendRef, screenRef);
   }
 
   void HandleEvents(const SDL_Event& evt)
@@ -635,16 +661,15 @@ namespace RepaUI
     Manager::Get().HandleEvents(evt);
   }
 
-  void Draw(bool debugMode = false)
+  void Draw()
   {
-    Manager::Get().Draw(debugMode);
+    Manager::Get().Draw();
   }
 
   Canvas* CreateCanvas(const SDL_Rect& transform,
-                       SDL_Texture* bgImage,
-                       Canvas* parent = nullptr)
+                       SDL_Texture* bgImage)
   {
-    return Manager::Get().CreateCanvas(transform, bgImage, parent);
+    return Manager::Get().CreateCanvas(transform, bgImage);
   }
 
   Image* CreateImage(Canvas* canvas,

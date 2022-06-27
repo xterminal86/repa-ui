@@ -21,7 +21,11 @@ SDL_Texture* LoadImage(const std::string& fname)
 
 void Draw()
 {
-  RepaUI::Draw(true);
+  SDL_RenderClear(_renderer);
+
+  RepaUI::Draw();
+
+  SDL_RenderPresent(_renderer);
 }
 
 void HoverTest(RepaUI::Element* sender)
@@ -31,21 +35,25 @@ void HoverTest(RepaUI::Element* sender)
 }
 
 RepaUI::Canvas* canvas2 = nullptr;
+RepaUI::Image* img2 = nullptr;
 
 void CreateGUI()
 {
   auto grid = LoadImage("grid.bmp");
   auto canvas = RepaUI::CreateCanvas({ 0, 0, 300, 300 }, grid);
+  canvas->ShowOutline(true);
   canvas->OnMouseHover = HoverTest;
 
   auto img = LoadImage("checkers.bmp");
   auto image = RepaUI::CreateImage(canvas, { 10, 10, 100, 100 }, img);
   image->OnMouseHover = HoverTest;
 
-  canvas2 = RepaUI::CreateCanvas({ 150, 100, 100, 100 }, grid, canvas);
+  canvas2 = RepaUI::CreateCanvas({ 400, 0, 100, 100 }, grid);
   canvas2->OnMouseHover = HoverTest;
+  canvas2->ShowOutline(true);
 
-  auto img2 = RepaUI::CreateImage(canvas2, { 50, 50, 100, 100 }, img);
+  img2 = RepaUI::CreateImage(canvas2, { 50, 50, 100, 100 }, img);
+  img2->ShowOutline(true);
   img2->OnMouseHover = HoverTest;
 }
 
@@ -85,7 +93,7 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  RepaUI::Init(_renderer);
+  RepaUI::Init(_renderer, _window);
 
   CreateGUI();
 
@@ -136,16 +144,20 @@ int main(int argc, char* argv[])
             t.y--;
             canvas2->SetTransform(t);
           }
+
+          if (evt.key.keysym.sym == SDLK_SPACE)
+          {
+            bool v = canvas2->IsVisible();
+            canvas2->SetVisible(!v);
+            //bool v = img2->IsVisible();
+            //img2->SetVisible(!v);
+          }
         }
         break;
       }
     }
 
-    SDL_RenderClear(_renderer);
-
     Draw();
-
-    SDL_RenderPresent(_renderer);
   }
 
   SDL_Quit();
