@@ -13,6 +13,15 @@
 
 namespace RepaUI
 {
+  enum class EventType
+  {
+    MOUSE_OVER = 0,
+    MOUSE_OUT,
+    MOUSE_MOVE,
+    MOUSE_DOWN,
+    MOUSE_UP
+  };
+
   // ===========================================================================
   //                              UTILS
   // ===========================================================================
@@ -181,6 +190,11 @@ namespace RepaUI
       void SetEnabled(bool enabled)
       {
         _enabled = enabled;
+
+        if (!_enabled)
+        {
+          _mouseEnter = false;
+        }
       }
 
       bool IsEnabled()
@@ -191,11 +205,21 @@ namespace RepaUI
       void SetVisible(bool visible)
       {
         _visible = visible;
+
+        if (!_visible)
+        {
+          _mouseEnter = false;
+        }
       }
 
       bool IsVisible()
       {
         return _visible;
+      }
+
+      bool IsEnabledAndVisible()
+      {
+        return (_enabled && _visible);
       }
 
       void ShowOutline(bool value)
@@ -226,32 +250,22 @@ namespace RepaUI
         {
           case SDL_MOUSEMOTION:
           {
-            if (!_mouseEnter && IsMouseInside(evt))
+            if (IsMouseInside(evt))
             {
-              _mouseEnter = true;
-
-              if (CanBeCalled(_onMouseHoverIntl))
+              if (!_mouseEnter)
               {
-                _onMouseHoverIntl(this);
+                _mouseEnter = true;
+                RaiseEvent(EventType::MOUSE_OVER);
               }
 
-              if (CanBeCalled(OnMouseHover))
-              {
-                OnMouseHover(this);
-              }
+              RaiseEvent(EventType::MOUSE_MOVE);
             }
-            else if (_mouseEnter && !IsMouseInside(evt))
+            else
             {
-              _mouseEnter = false;
-
-              if (CanBeCalled(_onMouseOutIntl))
+              if (_mouseEnter)
               {
-                _onMouseOutIntl(this);
-              }
-
-              if (CanBeCalled(OnMouseOut))
-              {
-                OnMouseOut(this);
+                _mouseEnter = false;
+                RaiseEvent(EventType::MOUSE_OUT);
               }
             }
           }
@@ -261,15 +275,7 @@ namespace RepaUI
           {
             if (IsMouseInside(evt))
             {
-              if (CanBeCalled(_onMouseDownIntl))
-              {
-                _onMouseDownIntl(this);
-              }
-
-              if (CanBeCalled(OnMouseDown))
-              {
-                OnMouseDown(this);
-              }
+              RaiseEvent(EventType::MOUSE_DOWN);
             }
           }
           break;
@@ -278,15 +284,7 @@ namespace RepaUI
           {
             if (IsMouseInside(evt))
             {
-              if (CanBeCalled(_onMouseUpIntl))
-              {
-                _onMouseUpIntl(this);
-              }
-
-              if (CanBeCalled(OnMouseUp))
-              {
-                OnMouseUp(this);
-              }
+              RaiseEvent(EventType::MOUSE_UP);
             }
           }
           break;
@@ -295,10 +293,11 @@ namespace RepaUI
 
       void ResetHandlers()
       {
-        OnMouseDown  = std::function<void(Element*)>();
-        OnMouseUp    = std::function<void(Element*)>();
-        OnMouseHover = std::function<void(Element*)>();
-        OnMouseOut   = std::function<void(Element*)>();
+        OnMouseDown = std::function<void(Element*)>();
+        OnMouseUp   = std::function<void(Element*)>();
+        OnMouseOver = std::function<void(Element*)>();
+        OnMouseOut  = std::function<void(Element*)>();
+        OnMouseMove = std::function<void(Element*)>();
       }
 
       void Draw()
@@ -316,8 +315,9 @@ namespace RepaUI
 
       std::function<void(Element*)> OnMouseDown;
       std::function<void(Element*)> OnMouseUp;
-      std::function<void(Element*)> OnMouseHover;
+      std::function<void(Element*)> OnMouseOver;
       std::function<void(Element*)> OnMouseOut;
+      std::function<void(Element*)> OnMouseMove;
 
     protected:
       bool IsMouseInside(const SDL_Event& evt);
@@ -326,6 +326,21 @@ namespace RepaUI
       bool CanBeCalled(const F& fn)
       {
         return (fn.target_type() != typeid(void));
+      }
+
+      template <typename CallbackIntl, typename Callback>
+      void CallHandlers(const CallbackIntl& cbIntl,
+                        const Callback& cb)
+      {
+        if (CanBeCalled(cbIntl))
+        {
+          cbIntl(this);
+        }
+
+        if (CanBeCalled(cb))
+        {
+          cb(this);
+        }
       }
 
       void UpdateTransform();
@@ -363,10 +378,55 @@ namespace RepaUI
 
       void ResetHandlersIntl()
       {
-        _onMouseDownIntl  = std::function<void(Element*)>();
-        _onMouseUpIntl    = std::function<void(Element*)>();
-        _onMouseHoverIntl = std::function<void(Element*)>();
-        _onMouseOutIntl   = std::function<void(Element*)>();
+        _onMouseDownIntl = std::function<void(Element*)>();
+        _onMouseUpIntl   = std::function<void(Element*)>();
+        _onMouseOverIntl = std::function<void(Element*)>();
+        _onMouseOutIntl  = std::function<void(Element*)>();
+        _onMouseMoveIntl = std::function<void(Element*)>();
+      }
+
+      void RaiseEvent(EventType eventType)
+      {
+        switch (eventType)
+        {
+          case EventType::MOUSE_OVER:
+          {
+            CallHandlers(_onMouseOverIntl, OnMouseOver);
+          }
+          break;
+
+          case EventType::MOUSE_OUT:
+          {
+            CallHandlers(_onMouseOutIntl, OnMouseOut);
+          }
+          break;
+
+          case EventType::MOUSE_DOWN:
+          {
+            CallHandlers(_onMouseDownIntl, OnMouseDown);
+          }
+          break;
+
+          case EventType::MOUSE_UP:
+          {
+            CallHandlers(_onMouseUpIntl, OnMouseUp);
+          }
+          break;
+
+          case EventType::MOUSE_MOVE:
+          {
+            CallHandlers(_onMouseMoveIntl, OnMouseMove);
+          }
+          break;
+
+          default:
+          {
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                        "Unknown event type: %i",
+                        (int)eventType);
+          }
+          break;
+        }
       }
 
       SDL_Rect _transform;
@@ -386,12 +446,14 @@ namespace RepaUI
 
       std::function<void(Element*)> _onMouseDownIntl;
       std::function<void(Element*)> _onMouseUpIntl;
-      std::function<void(Element*)> _onMouseHoverIntl;
+      std::function<void(Element*)> _onMouseOverIntl;
       std::function<void(Element*)> _onMouseOutIntl;
+      std::function<void(Element*)> _onMouseMoveIntl;
 
       Canvas* _owner = nullptr;
 
       friend class Canvas;
+      friend class Manager;
   };
 
   // ===========================================================================
@@ -406,6 +468,14 @@ namespace RepaUI
 
       void HandleEvents(const SDL_Event& evt)
       {
+        //
+        // Disabled canvas should not handle events at all.
+        //
+        if (!_enabled || !_visible)
+        {
+          return;
+        }
+
         Element::HandleEvents(evt);
 
         switch (evt.type)
@@ -416,12 +486,9 @@ namespace RepaUI
           {
             Element* newElement = nullptr;
 
-            for (int i = _elements.size() - 1; i >= 0; i--)
+            for (auto it = _elements.rbegin(); it != _elements.rend(); it++)
             {
-              auto it = _elements.begin();
-              std::advance(it, i);
-              if (it->second->IsVisible()
-               && it->second->IsEnabled()
+              if (it->second->IsEnabledAndVisible()
                && it->second->IsMouseInside(evt))
               {
                 newElement = it->second.get();
@@ -433,7 +500,8 @@ namespace RepaUI
             {
               if (_topElement != nullptr)
               {
-                _topElement->HandleEvents(evt);
+                _topElement->RaiseEvent(EventType::MOUSE_OUT);
+                _topElement->_mouseEnter = false;
               }
 
               _topElement = newElement;
@@ -667,12 +735,9 @@ namespace RepaUI
       {
         Canvas* newCanvas = nullptr;
 
-        for (int i = _canvases.size() - 1; i >= 0; i--)
+        for (auto it = _canvases.rbegin(); it != _canvases.rend(); it++)
         {
-          auto it = _canvases.begin();
-          std::advance(it, i);
-          if (it->second->IsVisible()
-           && it->second->IsEnabled()
+          if (it->second->IsEnabledAndVisible()
            && it->second->IsMouseInside(evt))
           {
             newCanvas = it->second.get();
@@ -683,13 +748,29 @@ namespace RepaUI
         //
         // If we moused out from canvas, we still need
         // to let it handle event for the last time
-        // for OnMouseOut event.
+        // for OnMouseOut event
+        // (also any top element of it that is clipped by the canvas).
         //
         if (_topCanvas != newCanvas)
         {
-          if (_topCanvas != nullptr)
+          if (_topCanvas != nullptr
+           && _topCanvas->IsEnabledAndVisible())
           {
-            _topCanvas->HandleEvents(evt);
+            if (_topCanvas->_topElement != nullptr)
+            {
+              _topCanvas->_topElement->RaiseEvent(EventType::MOUSE_OUT);
+              _topCanvas->_topElement->_mouseEnter = false;
+
+              //
+              // To prevent OnMouseOut() duplicate firing
+              // if we mouse outed from clipped element
+              // and overed again on an empty spot on the canvas.
+              //
+              _topCanvas->_topElement = nullptr;
+            }
+
+            _topCanvas->RaiseEvent(EventType::MOUSE_OUT);
+            _topCanvas->_mouseEnter = false;
           }
 
           _topCanvas = newCanvas;

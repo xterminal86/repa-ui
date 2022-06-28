@@ -30,13 +30,19 @@ void Draw()
 
 void HoverTest(RepaUI::Element* sender)
 {
-  std::string str = "OnMouseHover() element #" + std::to_string(sender->Id());
+  std::string str = "---->>>> element #" + std::to_string(sender->Id());
   SDL_Log(str.data());
 }
 
 void OutTest(RepaUI::Element* sender)
 {
-  std::string str = "OnMouseOut() element #" + std::to_string(sender->Id());
+  std::string str = "<<<<---- element #" + std::to_string(sender->Id());
+  SDL_Log(str.data());
+}
+
+void MoveTest(RepaUI::Element* sender)
+{
+  std::string str = "element #" + std::to_string(sender->Id());
   SDL_Log(str.data());
 }
 
@@ -48,26 +54,37 @@ void CreateGUI()
   auto grid = LoadImage("grid.bmp");
   auto canvas = RepaUI::CreateCanvas({ 0, 0, 300, 300 });
   canvas->ShowOutline(true);
-  canvas->OnMouseHover = HoverTest;
-  canvas->OnMouseOut   = OutTest;
+  canvas->OnMouseOver = HoverTest;
+  canvas->OnMouseOut  = OutTest;
+  //canvas->OnMouseMove = MoveTest;
 
   auto img = LoadImage("checkers.bmp");
   auto image = RepaUI::CreateImage(canvas, { 10, 10, 100, 100 }, img);
-  image->OnMouseHover = HoverTest;
-  image->OnMouseOut   = OutTest;
+  image->OnMouseOver = HoverTest;
+  image->OnMouseOut  = OutTest;
+  //image->OnMouseMove = MoveTest;
 
   auto img3 = RepaUI::CreateImage(canvas, { 50, 50, 100, 100 }, img);
-  img3->OnMouseHover = HoverTest;
-  img3->OnMouseOut   = OutTest;
+  img3->OnMouseOver = HoverTest;
+  img3->OnMouseOut  = OutTest;
 
   canvas2 = RepaUI::CreateCanvas({ 225, 0, 100, 100 });
-  canvas2->OnMouseHover = HoverTest;
-  canvas2->OnMouseOut   = OutTest;
+  canvas2->OnMouseOver = HoverTest;
+  canvas2->OnMouseOut  = OutTest;
+  //canvas2->OnMouseMove = MoveTest;
   canvas2->ShowOutline(true);
 
   img2 = RepaUI::CreateImage(canvas2, { 50, 50, 100, 100 }, img);
   img2->ShowOutline(true);
-  img2->OnMouseHover = HoverTest;
+  img2->OnMouseOver = HoverTest;
+  img2->OnMouseOut  = OutTest;
+  //img2->OnMouseMove = MoveTest;
+
+  auto img4 = RepaUI::CreateImage(canvas2, { 60, 60, 100, 100 }, img);
+  img4->ShowOutline(true);
+  img4->OnMouseOver = HoverTest;
+  img4->OnMouseOut  = OutTest;
+  //img4->OnMouseMove = MoveTest;
 }
 
 int main(int argc, char* argv[])
