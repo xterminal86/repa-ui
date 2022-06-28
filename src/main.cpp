@@ -30,7 +30,13 @@ void Draw()
 
 void HoverTest(RepaUI::Element* sender)
 {
-  std::string str = "Hello form element #" + std::to_string(sender->Id());
+  std::string str = "OnMouseHover() element #" + std::to_string(sender->Id());
+  SDL_Log(str.data());
+}
+
+void OutTest(RepaUI::Element* sender)
+{
+  std::string str = "OnMouseOut() element #" + std::to_string(sender->Id());
   SDL_Log(str.data());
 }
 
@@ -43,13 +49,20 @@ void CreateGUI()
   auto canvas = RepaUI::CreateCanvas({ 0, 0, 300, 300 });
   canvas->ShowOutline(true);
   canvas->OnMouseHover = HoverTest;
+  canvas->OnMouseOut   = OutTest;
 
   auto img = LoadImage("checkers.bmp");
   auto image = RepaUI::CreateImage(canvas, { 10, 10, 100, 100 }, img);
   image->OnMouseHover = HoverTest;
+  image->OnMouseOut   = OutTest;
 
-  canvas2 = RepaUI::CreateCanvas({ 250, 0, 100, 100 });
+  auto img3 = RepaUI::CreateImage(canvas, { 50, 50, 100, 100 }, img);
+  img3->OnMouseHover = HoverTest;
+  img3->OnMouseOut   = OutTest;
+
+  canvas2 = RepaUI::CreateCanvas({ 225, 0, 100, 100 });
   canvas2->OnMouseHover = HoverTest;
+  canvas2->OnMouseOut   = OutTest;
   canvas2->ShowOutline(true);
 
   img2 = RepaUI::CreateImage(canvas2, { 50, 50, 100, 100 }, img);

@@ -158,6 +158,8 @@ namespace RepaUI
 
       std::unique_ptr<Canvas> _screenCanvas;
 
+      Canvas* _topCanvas = nullptr;
+
       SDL_Rect _currentClipRect;
 
       std::stack<SDL_Rect> _renderClipRects;
@@ -404,18 +406,45 @@ namespace RepaUI
 
       void HandleEvents(const SDL_Event& evt)
       {
-        if (!_enabled || !_visible)
-        {
-          return;
-        }
-
         Element::HandleEvents(evt);
 
-        for (int i = _elements.size() - 1; i >= 0; i--)
+        switch (evt.type)
         {
-          auto it = _elements.begin();
-          std::advance(it, i);
-          it->second->HandleEvents(evt);
+          case SDL_MOUSEMOTION:
+          case SDL_MOUSEBUTTONUP:
+          case SDL_MOUSEBUTTONDOWN:
+          {
+            Element* newElement = nullptr;
+
+            for (int i = _elements.size() - 1; i >= 0; i--)
+            {
+              auto it = _elements.begin();
+              std::advance(it, i);
+              if (it->second->IsVisible()
+               && it->second->IsEnabled()
+               && it->second->IsMouseInside(evt))
+              {
+                newElement = it->second.get();
+                break;
+              }
+            }
+
+            if (_topElement != newElement)
+            {
+              if (_topElement != nullptr)
+              {
+                _topElement->HandleEvents(evt);
+              }
+
+              _topElement = newElement;
+            }
+          }
+          break;
+        }
+
+        if (_topElement != nullptr)
+        {
+          _topElement->HandleEvents(evt);
         }
       }
 
@@ -479,6 +508,8 @@ namespace RepaUI
       }
 
       std::map<uint64_t, std::unique_ptr<Element>> _elements;
+
+      Element* _topElement = nullptr;
 
       friend class Manager;
   };
@@ -634,16 +665,46 @@ namespace RepaUI
       case SDL_MOUSEBUTTONUP:
       case SDL_MOUSEBUTTONDOWN:
       {
-        _screenCanvas->HandleEvents(evt);
+        Canvas* newCanvas = nullptr;
 
         for (int i = _canvases.size() - 1; i >= 0; i--)
         {
           auto it = _canvases.begin();
           std::advance(it, i);
-          it->second->HandleEvents(evt);
+          if (it->second->IsVisible()
+           && it->second->IsEnabled()
+           && it->second->IsMouseInside(evt))
+          {
+            newCanvas = it->second.get();
+            break;
+          }
+        }
+
+        //
+        // If we moused out from canvas, we still need
+        // to let it handle event for the last time
+        // for OnMouseOut event.
+        //
+        if (_topCanvas != newCanvas)
+        {
+          if (_topCanvas != nullptr)
+          {
+            _topCanvas->HandleEvents(evt);
+          }
+
+          _topCanvas = newCanvas;
         }
       }
       break;
+    }
+
+    if (_topCanvas != nullptr)
+    {
+      _topCanvas->HandleEvents(evt);
+    }
+    else
+    {
+      _screenCanvas->HandleEvents(evt);
     }
   }
 
