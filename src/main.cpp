@@ -40,7 +40,7 @@ RepaUI::Image* img2 = nullptr;
 void CreateGUI()
 {
   auto grid = LoadImage("grid.bmp");
-  auto canvas = RepaUI::CreateCanvas({ 0, 0, 300, 300 }, grid);
+  auto canvas = RepaUI::CreateCanvas({ 0, 0, 300, 300 });
   canvas->ShowOutline(true);
   canvas->OnMouseHover = HoverTest;
 
@@ -48,7 +48,7 @@ void CreateGUI()
   auto image = RepaUI::CreateImage(canvas, { 10, 10, 100, 100 }, img);
   image->OnMouseHover = HoverTest;
 
-  canvas2 = RepaUI::CreateCanvas({ 400, 0, 100, 100 }, grid);
+  canvas2 = RepaUI::CreateCanvas({ 250, 0, 100, 100 });
   canvas2->OnMouseHover = HoverTest;
   canvas2->ShowOutline(true);
 

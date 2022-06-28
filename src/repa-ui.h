@@ -59,8 +59,7 @@ namespace RepaUI
       void Draw();
 
       // =======================================================================
-      Canvas* CreateCanvas(const SDL_Rect& transform,
-                           SDL_Texture* bgImage);
+      Canvas* CreateCanvas(const SDL_Rect& transform);
       Image* CreateImage(Canvas* canvas,
                           const SDL_Rect& transform,
                           SDL_Texture* image);
@@ -76,12 +75,12 @@ namespace RepaUI
       void PrepareImages()
       {
         // FIXME: replace with embedded
-        _font = LoadImage("font.bmp", 0xFF, 0x00, 0xFF);
+        //_font = LoadImage("font.bmp", 0xFF, 0x00, 0xFF);
 
-        _btnNormal   = LoadImage("btn-normal.bmp");
-        _btnPressed  = LoadImage("btn-pressed.bmp");
-        _btnHover    = LoadImage("btn-hover.bmp");
-        _btnDisabled = _btnPressed; //LoadImage("btn-pressed.bmp");
+        //_btnNormal   = LoadImage("btn-normal.bmp");
+        //_btnPressed  = LoadImage("btn-pressed.bmp");
+        //_btnHover    = LoadImage("btn-hover.bmp");
+        //_btnDisabled = _btnPressed; //LoadImage("btn-pressed.bmp");
       }
 
       SDL_Texture* LoadImage(const std::string& fname)
@@ -157,7 +156,7 @@ namespace RepaUI
 
       std::map<uint64_t, std::unique_ptr<Canvas>> _canvases;
 
-      Canvas* _screenCanvas = nullptr;
+      std::unique_ptr<Canvas> _screenCanvas;
 
       SDL_Rect _currentClipRect;
 
@@ -292,6 +291,14 @@ namespace RepaUI
         }
       }
 
+      void ResetHandlers()
+      {
+        OnMouseDown  = std::function<void(Element*)>();
+        OnMouseUp    = std::function<void(Element*)>();
+        OnMouseHover = std::function<void(Element*)>();
+        OnMouseOut   = std::function<void(Element*)>();
+      }
+
       void Draw()
       {
         if (_visible)
@@ -352,6 +359,14 @@ namespace RepaUI
         SDL_SetRenderDrawColor(_rendRef, r, g, b, a);
       }
 
+      void ResetHandlersIntl()
+      {
+        _onMouseDownIntl  = std::function<void(Element*)>();
+        _onMouseUpIntl    = std::function<void(Element*)>();
+        _onMouseHoverIntl = std::function<void(Element*)>();
+        _onMouseOutIntl   = std::function<void(Element*)>();
+      }
+
       SDL_Rect _transform;
       SDL_Rect _localTransform;
 
@@ -384,13 +399,8 @@ namespace RepaUI
   {
     public:
       Canvas(const SDL_Rect& transform,
-             SDL_Renderer* rendRef,
-             SDL_Texture* bgImage)
-        : Element(nullptr, transform, rendRef)
-      {
-        _bgImage    = bgImage;
-        _bgImageDst = _transform;
-      }
+             SDL_Renderer* rendRef)
+        : Element(nullptr, transform, rendRef) {}
 
       void HandleEvents(const SDL_Event& evt)
       {
@@ -401,9 +411,11 @@ namespace RepaUI
 
         Element::HandleEvents(evt);
 
-        for (auto& kvp : _elements)
+        for (int i = _elements.size() - 1; i >= 0; i--)
         {
-          kvp.second->HandleEvents(evt);
+          auto it = _elements.begin();
+          std::advance(it, i);
+          it->second->HandleEvents(evt);
         }
       }
 
@@ -411,8 +423,6 @@ namespace RepaUI
       {
         Element::SetTransform(transform);
         Element::UpdateTransform();
-
-        _bgImageDst = _transform;
 
         for (auto& kvp : _elements)
         {
@@ -441,16 +451,7 @@ namespace RepaUI
         Manager::Get().PopClipRect();
       }
 
-      void DrawImpl() override
-      {
-        if (_bgImage != nullptr)
-        {
-          SDL_RenderCopy(_rendRef,
-                         _bgImage,
-                         nullptr,
-                         &_bgImageDst);
-        }
-      }
+      void DrawImpl() override {}
 
     private:
       Element* Add(Element* e)
@@ -478,10 +479,6 @@ namespace RepaUI
       }
 
       std::map<uint64_t, std::unique_ptr<Element>> _elements;
-
-      SDL_Texture* _bgImage = nullptr;
-
-      SDL_Rect _bgImageDst;
 
       friend class Manager;
   };
@@ -550,8 +547,8 @@ namespace RepaUI
 
   void Manager::CreateScreenCanvas()
   {
-    Canvas* screen = CreateCanvas({ 0, 0, _windowWidth, _windowHeight }, nullptr);
-    _screenCanvas = screen;
+    _screenCanvas = std::make_unique<Canvas>(SDL_Rect{ 0, 0, _windowWidth, _windowHeight }, _rendRef);
+    _screenCanvas->ResetHandlersIntl();
   }
 
   // ===========================================================================
@@ -598,12 +595,10 @@ namespace RepaUI
   // ===========================================================================
   //                           GUI ELEMENTS CREATION
   // ===========================================================================
-  Canvas* Manager::CreateCanvas(const SDL_Rect& transform,
-                                SDL_Texture* bgImage)
+  Canvas* Manager::CreateCanvas(const SDL_Rect& transform)
   {
     std::unique_ptr<Canvas> canvas = std::make_unique<Canvas>(transform,
-                                                              _rendRef,
-                                                              bgImage);
+                                                              _rendRef);
     uint64_t id = canvas->Id();
     _canvases[id] = std::move(canvas);
     return _canvases[id].get();
@@ -613,7 +608,7 @@ namespace RepaUI
                             const SDL_Rect& transform,
                             SDL_Texture* image)
   {
-    Canvas* c = (canvas == nullptr) ? _screenCanvas : canvas;
+    Canvas* c = (canvas == nullptr) ? _screenCanvas.get() : canvas;
     Image* img = new Image(c, image, transform, _rendRef);
     return static_cast<Image*>(c->Add(img));
   }
@@ -639,9 +634,13 @@ namespace RepaUI
       case SDL_MOUSEBUTTONUP:
       case SDL_MOUSEBUTTONDOWN:
       {
-        for (auto& kvp : _canvases)
+        _screenCanvas->HandleEvents(evt);
+
+        for (int i = _canvases.size() - 1; i >= 0; i--)
         {
-          kvp.second->HandleEvents(evt);
+          auto it = _canvases.begin();
+          std::advance(it, i);
+          it->second->HandleEvents(evt);
         }
       }
       break;
@@ -666,10 +665,9 @@ namespace RepaUI
     Manager::Get().Draw();
   }
 
-  Canvas* CreateCanvas(const SDL_Rect& transform,
-                       SDL_Texture* bgImage)
+  Canvas* CreateCanvas(const SDL_Rect& transform)
   {
-    return Manager::Get().CreateCanvas(transform, bgImage);
+    return Manager::Get().CreateCanvas(transform);
   }
 
   Image* CreateImage(Canvas* canvas,
