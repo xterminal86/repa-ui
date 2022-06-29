@@ -62,6 +62,9 @@ void UpTest(RepaUI::Element* sender)
 
 RepaUI::Canvas* canvas2 = nullptr;
 RepaUI::Image* img2 = nullptr;
+RepaUI::Image* img4 = nullptr;
+
+RepaUI::Element* elementToControl = nullptr;
 
 void CreateGUI()
 {
@@ -105,14 +108,17 @@ void CreateGUI()
   img2->OnMouseOut  = OutTest;
   //img2->OnMouseMove = MoveTest;
 
-  auto img4 = RepaUI::CreateImage(canvas2, { 180, 60, 100, 100 }, imgTex2);
+  img4 = RepaUI::CreateImage(canvas2, { 180, 60, 100, 100 }, imgTex2);
   img4->ShowOutline(true);
   img4->SetDrawType(RepaUI::Image::DrawType::TILED);
+  //img4->SetTileRate({ 2, 2 });
   img4->OnMouseOver = HoverTest;
   img4->OnMouseOut  = OutTest;
   img4->OnMouseDown = DownTest;
   img4->OnMouseUp   = UpTest;
   //img4->OnMouseMove = MoveTest;
+
+  elementToControl = img4;
 }
 
 int main(int argc, char* argv[])
@@ -177,30 +183,30 @@ int main(int argc, char* argv[])
 
           if (evt.key.keysym.sym == SDLK_RIGHT)
           {
-            SDL_Rect t = canvas2->Transform();
+            SDL_Rect t = elementToControl->Transform();
             t.x++;
-            canvas2->SetTransform(t);
+            elementToControl->SetTransform(t);
           }
 
           if (evt.key.keysym.sym == SDLK_LEFT)
           {
-            SDL_Rect t = canvas2->Transform();
+            SDL_Rect t = elementToControl->Transform();
             t.x--;
-            canvas2->SetTransform(t);
+            elementToControl->SetTransform(t);
           }
 
           if (evt.key.keysym.sym == SDLK_DOWN)
           {
-            SDL_Rect t = canvas2->Transform();
+            SDL_Rect t = elementToControl->Transform();
             t.y++;
-            canvas2->SetTransform(t);
+            elementToControl->SetTransform(t);
           }
 
           if (evt.key.keysym.sym == SDLK_UP)
           {
-            SDL_Rect t = canvas2->Transform();
+            SDL_Rect t = elementToControl->Transform();
             t.y--;
-            canvas2->SetTransform(t);
+            elementToControl->SetTransform(t);
           }
 
           if (evt.key.keysym.sym == SDLK_SPACE)
@@ -209,6 +215,17 @@ int main(int argc, char* argv[])
             canvas2->SetVisible(!v);
             //bool v = img2->IsVisible();
             //img2->SetVisible(!v);
+          }
+
+          if (evt.key.keysym.sym == SDLK_KP_PLUS)
+          {
+            static int rx = 1;
+            static int ry = 1;
+
+            rx++;
+            ry++;
+
+            img4->SetTileRate({ rx, ry });
           }
         }
         break;

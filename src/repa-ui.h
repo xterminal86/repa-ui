@@ -549,6 +549,14 @@ namespace RepaUI
         }
       }
 
+      void UpdateChildTransforms()
+      {
+        for (auto& kvp : _elements)
+        {
+          kvp.second->UpdateTransform();
+        }
+      }
+
       void Draw()
       {
         if (!_visible)
@@ -622,6 +630,11 @@ namespace RepaUI
   void Element::SetTransform(const SDL_Rect& transform)
   {
     _localTransform = transform;
+
+    if (_owner != nullptr)
+    {
+      _owner->UpdateChildTransforms();
+    }
   }
 
   void Element::UpdateTransform()
@@ -699,6 +712,19 @@ namespace RepaUI
                          nullptr,
                          &_imageSrc.w,
                          &_imageSrc.h);
+
+        SetTileRate({ 1, 1 });
+      }
+
+      void SetTileRate(const std::pair<size_t, size_t>& tileRate)
+      {
+        _tileRate = tileRate;
+
+        _tileRate.first  = Clamp(_tileRate.first,  (size_t)1, (size_t)_transform.w);
+        _tileRate.second = Clamp(_tileRate.second, (size_t)1, (size_t)_transform.h);
+
+        _stepX = _transform.w / _tileRate.first;
+        _stepY = _transform.h / _tileRate.second;
       }
 
       void SetSlicePoints(const SDL_Rect& slicePoints)
@@ -860,15 +886,27 @@ namespace RepaUI
       {
         auto& c = GetCornersCoordsAbsolute();
 
-        Manager::Get().PushClipRect();
-
-        SDL_RenderSetClipRect(_rendRef, &_transform);
-
-        for (int x = c.x; x < c.w; x += _imageSrc.w)
+        for (int x = c.x; x < c.w; x += _stepX)
         {
-          for (int y = c.y; y < c.h; y += _imageSrc.h)
+          for (int y = c.y; y < c.h; y += _stepY)
           {
-            _tmp = { x, y, _imageSrc.w, _imageSrc.h };
+            _tmp = { x, y, _stepX, _stepY };
+
+            //
+            // If tiling doesn't fit perfectly into image size,
+            // calculate remaining clipping width and height
+            // for the last step. Artifacts may occur though
+            // if transform size doesn't divide wholly on tiling rate.
+            //
+            if (_tmp.x + _tmp.w > c.w)
+            {
+              _tmp.w = c.w - _tmp.x;
+            }
+
+            if (_tmp.y + _tmp.h > c.h)
+            {
+              _tmp.h = c.h - _tmp.y;
+            }
 
             SDL_RenderCopyEx(_rendRef,
                              _image,
@@ -879,8 +917,6 @@ namespace RepaUI
                              SDL_FLIP_NONE);
           }
         }
-
-        Manager::Get().PopClipRect();
       }
 
       DrawType _drawType = DrawType::NORMAL;
@@ -892,6 +928,11 @@ namespace RepaUI
       SDL_Rect _slices[9];
       SDL_Rect _fragments[9];
       SDL_Rect _slicePoints;
+
+      std::pair<size_t, size_t> _tileRate;
+
+      int _stepX = 1;
+      int _stepY = 1;
   };
 
   // ===========================================================================
