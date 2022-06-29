@@ -7,8 +7,8 @@
 SDL_Renderer* _renderer = nullptr;
 SDL_Window* _window = nullptr;
 
-const int kWindowWidth  = 640;
-const int kWindowHeight = 480;
+const int kWindowWidth  = 1024;
+const int kWindowHeight = 1024;
 
 std::string message;
 
@@ -75,18 +75,20 @@ void CreateGUI()
   screenCanvas->OnMouseOut  = OutTest;
   //canvas->OnMouseMove = MoveTest;
 
-  auto imgTex = LoadImage("slice-test-big.bmp");
-  auto image = RepaUI::CreateImage(screenCanvas, { 10, 10, 200, 200 }, imgTex);
-  image->SetSlicePoints({ 60, 60, 260, 260 });
+  auto imgTex = LoadImage("slice-test.bmp");
+  //auto imgTex = LoadImage("slice-non-uniform.bmp");
+  auto image = RepaUI::CreateImage(screenCanvas, { 10, 10, 32, 32 }, imgTex);
+  image->SetSlicePoints({ 6, 6, 25, 25 });
+  //image->SetSlicePoints({ 5, 5, 19, 20 });
   image->SetDrawType(RepaUI::Image::DrawType::SLICED);
-  image->ShowOutline(true);
+  //image->ShowOutline(true);
   image->OnMouseOver = HoverTest;
   image->OnMouseOut  = OutTest;
   //image->OnMouseMove = MoveTest;
 
   auto imgWnd = LoadImage("window.bmp");
   auto imageWnd = RepaUI::CreateImage(screenCanvas, { 0, 250, 200, 200 }, imgWnd);
-  imageWnd->SetSlicePoints({ 3, 3, 13, 13 });
+  imageWnd->SetSlicePoints({ 3, 3, 12, 12 });
   imageWnd->SetDrawType(RepaUI::Image::DrawType::SLICED);
 
   auto imgTex2 = LoadImage("checkers.bmp");
@@ -118,7 +120,7 @@ void CreateGUI()
   img4->OnMouseUp   = UpTest;
   //img4->OnMouseMove = MoveTest;
 
-  elementToControl = img4;
+  elementToControl = canvas2;
 }
 
 int main(int argc, char* argv[])
@@ -157,11 +159,13 @@ int main(int argc, char* argv[])
     return 1;
   }
 
+  //SDL_RenderSetScale(_renderer, 4, 4);
+
   RepaUI::Init(_renderer, _window);
 
   CreateGUI();
 
-  SDL_SetRenderDrawColor(_renderer, 0, 255, 255, 255);
+  SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 255);
 
   SDL_Event evt;
 
@@ -184,28 +188,28 @@ int main(int argc, char* argv[])
           if (evt.key.keysym.sym == SDLK_RIGHT)
           {
             SDL_Rect t = elementToControl->Transform();
-            t.x++;
+            t.x += 10;
             elementToControl->SetTransform(t);
           }
 
           if (evt.key.keysym.sym == SDLK_LEFT)
           {
             SDL_Rect t = elementToControl->Transform();
-            t.x--;
+            t.x -= 10;
             elementToControl->SetTransform(t);
           }
 
           if (evt.key.keysym.sym == SDLK_DOWN)
           {
             SDL_Rect t = elementToControl->Transform();
-            t.y++;
+            t.y += 10;
             elementToControl->SetTransform(t);
           }
 
           if (evt.key.keysym.sym == SDLK_UP)
           {
             SDL_Rect t = elementToControl->Transform();
-            t.y--;
+            t.y -= 10;
             elementToControl->SetTransform(t);
           }
 

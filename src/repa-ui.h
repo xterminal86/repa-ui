@@ -379,7 +379,15 @@ namespace RepaUI
         uint8_t r, g, b, a;
         SDL_GetRenderDrawColor(_rendRef, &r, &g, &b, &a);
 
-        SDL_SetRenderDrawColor(_rendRef, 255, 255, 255, 255);
+        if (_enabled)
+        {
+          SDL_SetRenderDrawColor(_rendRef, 255, 255, 255, 255);
+        }
+        else
+        {
+          SDL_SetRenderDrawColor(_rendRef, 255, 0, 0, 255);
+        }
+
         SDL_RenderDrawLines(_rendRef, _debugOutline, 5);
         SDL_RenderDrawLine(_rendRef,
                            _transform.x,
@@ -635,6 +643,11 @@ namespace RepaUI
     {
       _owner->UpdateChildTransforms();
     }
+    else
+    {
+      // FIXME:
+      _transform = _localTransform;
+    }
   }
 
   void Element::UpdateTransform()
@@ -732,11 +745,11 @@ namespace RepaUI
         _slicePoints = slicePoints;
 
         _slicePoints.w = (_slicePoints.w < 0)
-                         ? (_imageSrc.w + _slicePoints.w - 1)
+                         ? (_imageSrc.w + _slicePoints.w)
                          : _slicePoints.w;
 
         _slicePoints.h = (_slicePoints.h < 0)
-                         ? (_imageSrc.h + _slicePoints.h - 1)
+                         ? (_imageSrc.h + _slicePoints.h)
                          : _slicePoints.h;
 
         _slicePoints.x = Clamp(_slicePoints.x,
@@ -764,49 +777,34 @@ namespace RepaUI
 
         //
         //  --- --- ---
-        // | 1 | 2 | 3 |
+        // | 0 | 1 | 2 |
         //  --- --- ---
-        // | 4 | 5 | 6 |
+        // | 3 | 4 | 5 |
         //  --- --- ---
-        // | 7 | 8 | 9 |
+        // | 6 | 7 | 8 |
         //  --- --- ---
         //
-
-        // 1
+        //
+        // Width and height must be 1 unit more for rect drawing bounds,
+        // and since _slicePoints are absolute,
+        // sometimes we need to add 1 for certain slices.
+        //
         _slices[0] = { 0, 0, _slicePoints.x, _slicePoints.y };
-        // 2
-        _slices[1] = { _slicePoints.x, 0, _slicePoints.w, _slicePoints.y };
-        // 3
-        _slices[2] = { _slicePoints.w, 0, _imageSrc.w, _slicePoints.y };
-        // 4
-        _slices[3] = { 0, _slicePoints.y, _slicePoints.x, _slicePoints.h };
-        // 5
-        _slices[4] = { _slicePoints.x, _slicePoints.y, _slicePoints.w, _slicePoints.h };
-        // 6
-        _slices[5] = { _slicePoints.w, _slicePoints.y, _imageSrc.w, _slicePoints.h };
-        // 7
-        _slices[6] = { 0, _slicePoints.h, _slicePoints.x, _imageSrc.h };
-        // 8
-        _slices[7] = { _slicePoints.x, _slicePoints.h, _slicePoints.w, _imageSrc.h };
-        // 9
-        _slices[8] = { _slicePoints.w, _slicePoints.h, _imageSrc.w, _imageSrc.h };
+        _slices[1] = { _slicePoints.x, 0, _slicePoints.w + 1, _slicePoints.y };
+        _slices[2] = { _slicePoints.w + 1, 0, _imageSrc.w, _slicePoints.y };
+        _slices[3] = { 0, _slicePoints.y, _slicePoints.x, _slicePoints.h + 1 };
+        _slices[4] = { _slicePoints.x, _slicePoints.y, _slicePoints.w + 1, _slicePoints.h + 1 };
+        _slices[5] = { _slicePoints.w + 1, _slicePoints.y, _imageSrc.w, _slicePoints.h + 1 };
+        _slices[6] = { 0, _slicePoints.h + 1, _slicePoints.x, _imageSrc.h };
+        _slices[7] = { _slicePoints.x, _slicePoints.h + 1, _slicePoints.w + 1, _imageSrc.h };
+        _slices[8] = { _slicePoints.w + 1, _slicePoints.h + 1, _imageSrc.w, _imageSrc.h };
 
-        //
-        // Drawing coordinates accordingly
-        // assuming slice size is uniform and squared
-        // thus we can use _slice[0] width and height for reference.
-        //
-        auto t = Transform();
+        for (auto& i : _slices)
+        {
+          _swh.push_back({ i.w - i.x, i.h - i.y });
+        }
 
-        _fragments[0] = { t.x, t.y, _slices[0].w, _slices[0].h };
-        _fragments[1] = { t.x + _slices[0].w, t.y, t.w - _slices[0].w * 2, _slices[0].h };
-        _fragments[2] = { t.x + t.w - _slices[0].w, t.y, _slices[0].w, _slices[0].h };
-        _fragments[3] = { t.x, t.y + _slices[0].h, _slices[0].w, t.h - _slices[0].h * 2 };
-        _fragments[4] = { t.x + _slices[0].w, t.y + _slices[0].h, t.w - _slices[0].w * 2, t.h - _slices[0].h * 2 };
-        _fragments[5] = { t.x + t.w - _slices[0].w, t.y + _slices[0].h, _slices[0].w, t.h - _slices[0].h * 2 };
-        _fragments[6] = { t.x, t.y + t.h - _slices[0].h, _slices[0].w, _slices[0].h };
-        _fragments[7] = { t.x + _slices[0].w, t.y + t.h - _slices[0].h, t.w - _slices[0].w * 2, _slices[0].h };
-        _fragments[8] = { t.x + t.w - _slices[0].w, t.y + t.h - _slices[0].h, _slices[0].w, _slices[0].h };
+        CalculateFragments();
       }
 
       void SetDrawType(DrawType drawType)
@@ -849,6 +847,38 @@ namespace RepaUI
       }
 
     private:
+      void CalculateFragments()
+      {
+        //
+        // Drawing rect for screen output.
+        //
+
+        auto coords = GetCornersCoordsAbsolute();
+        auto t = Transform();
+
+        //
+        // On the screen certain slices will share
+        // the same width or height.
+        //
+        // !!!
+        // FIRST PAIR IS STARTING COORDINATES,
+        // SECOND - WIDTH AND HEIGHT
+        // !!!
+        //
+        // I kinda fucked myself over
+        // by misusing SDL_Rect for storing coordinates.
+        //
+        _fragments[0] = { coords.x, coords.y, _swh[0].first, _swh[0].second };
+        _fragments[1] = { coords.x + _swh[0].first, coords.y, t.w - (_swh[0].first + _swh[2].first), _swh[0].second };
+        _fragments[2] = { coords.w - _swh[2].first, coords.y, _swh[2].first, _swh[2].second };
+        _fragments[3] = { coords.x, coords.y + _swh[0].second, _swh[0].first, t.h - (_swh[0].second + _swh[6].second) };
+        _fragments[4] = { coords.x + _swh[0].first, coords.y + _swh[0].second, t.w - (_swh[0].first + _swh[2].first), t.h - (_swh[0].second + _swh[6].second) };
+        _fragments[5] = { coords.w - _swh[2].first, coords.y + _swh[0].second, _swh[2].first, t.h - (_swh[0].second + _swh[6].second) };
+        _fragments[6] = { coords.x, coords.h - _swh[6].second, _swh[0].first, _swh[6].second };
+        _fragments[7] = { coords.x + _swh[0].first, coords.h - _swh[6].second, t.w - (_swh[0].first + _swh[2].first), _swh[6].second };
+        _fragments[8] = { coords.w - _swh[2].first, coords.h - _swh[6].second, _swh[2].first, _swh[6].second };
+      }
+
       void DrawNormal()
       {
         SDL_RenderCopyEx(_rendRef,
@@ -862,6 +892,8 @@ namespace RepaUI
 
       void DrawSliced()
       {
+        CalculateFragments();
+
         for (size_t i = 0; i < 9; i++)
         {
           _tmp =
@@ -930,6 +962,7 @@ namespace RepaUI
       SDL_Rect _slicePoints;
 
       std::pair<size_t, size_t> _tileRate;
+      std::vector<std::pair<int, int>> _swh;
 
       int _stepX = 1;
       int _stepY = 1;
