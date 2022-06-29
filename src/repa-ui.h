@@ -1,5 +1,5 @@
-#ifndef S2G_H
-#define S2G_H
+#ifndef REPAUI_H
+#define REPAUI_H
 
 #include "SDL2/SDL.h"
 
@@ -29,6 +29,14 @@ namespace RepaUI
   T Clamp(T value, T min, T max)
   {
     return std::max(min, std::min(value, max));
+  }
+
+  bool IsSet(const SDL_Rect& rect)
+  {
+    return (rect.x != 0
+         && rect.y != 0
+         && rect.w != 0
+         && rect.h != 0);
   }
 
   // ===========================================================================
@@ -175,6 +183,7 @@ namespace RepaUI
 
       friend class Element;
       friend class Canvas;
+      friend class Image;
   };
 
   // ===========================================================================
@@ -184,8 +193,7 @@ namespace RepaUI
   {
     public:
       Element(Canvas* parent,
-              const SDL_Rect& transform,
-              SDL_Renderer* rendRef);
+              const SDL_Rect& transform);
 
       void SetEnabled(bool enabled)
       {
@@ -235,6 +243,16 @@ namespace RepaUI
       const SDL_Rect& Transform()
       {
         return (_owner == nullptr) ? _transform : _localTransform;
+      }
+
+      const SDL_Rect& GetCornersCoordsAbsolute()
+      {
+        _corners.x = _transform.x;
+        _corners.y = _transform.y;
+        _corners.w = _transform.x + _transform.w;
+        _corners.h = _transform.y + _transform.h;
+
+        return _corners;
       }
 
       void SetTransform(const SDL_Rect& transform);
@@ -431,6 +449,7 @@ namespace RepaUI
 
       SDL_Rect _transform;
       SDL_Rect _localTransform;
+      SDL_Rect _corners;
 
       SDL_Renderer* _rendRef = nullptr;
 
@@ -464,7 +483,10 @@ namespace RepaUI
     public:
       Canvas(const SDL_Rect& transform,
              SDL_Renderer* rendRef)
-        : Element(nullptr, transform, rendRef) {}
+        : Element(nullptr, transform)
+      {
+        _rendRef = rendRef;
+      }
 
       void HandleEvents(const SDL_Event& evt)
       {
@@ -586,11 +608,10 @@ namespace RepaUI
   //                             DEFINITIONS
   // ===========================================================================
   Element::Element(Canvas* parent,
-                   const SDL_Rect& transform,
-                   SDL_Renderer* rendRef)
+                   const SDL_Rect& transform)
   {
     _owner   = parent;
-    _rendRef = rendRef;
+    _rendRef = Manager::Get()._rendRef;
 
     _id = Manager::Get().GetNewId();
 
@@ -656,39 +677,221 @@ namespace RepaUI
   class Image : public Element
   {
     public:
+      enum class DrawType
+      {
+        NORMAL = 0,
+        TILED,
+        SLICED
+      };
+
       Image(Canvas* owner,
             SDL_Texture* image,
-            const SDL_Rect& transform,
-            SDL_Renderer* rendRef)
-        : Element(owner, transform, rendRef)
+            const SDL_Rect& transform)
+        : Element(owner, transform)
       {
         _image = image;
 
-        _src.x = 0;
-        _src.y = 0;
+        _imageSrc.x = 0;
+        _imageSrc.y = 0;
 
         SDL_QueryTexture(_image,
                          nullptr,
                          nullptr,
-                         &_src.w,
-                         &_src.h);
+                         &_imageSrc.w,
+                         &_imageSrc.h);
+      }
+
+      void SetSlicePoints(const SDL_Rect& slicePoints)
+      {
+        _slicePoints = slicePoints;
+
+        _slicePoints.w = (_slicePoints.w < 0)
+                         ? (_imageSrc.w + _slicePoints.w - 1)
+                         : _slicePoints.w;
+
+        _slicePoints.h = (_slicePoints.h < 0)
+                         ? (_imageSrc.h + _slicePoints.h - 1)
+                         : _slicePoints.h;
+
+        _slicePoints.x = Clamp(_slicePoints.x,
+                               0,
+                               _imageSrc.w);
+        _slicePoints.y = Clamp(_slicePoints.y,
+                               0,
+                               _imageSrc.h);
+        _slicePoints.w = Clamp(_slicePoints.w,
+                               0,
+                               _imageSrc.w);
+        _slicePoints.h = Clamp(_slicePoints.h,
+                               0,
+                               _imageSrc.h);
+
+        if (_slicePoints.w < _slicePoints.x)
+        {
+          _slicePoints.w = _slicePoints.x;
+        }
+
+        if (_slicePoints.h < _slicePoints.y)
+        {
+          _slicePoints.h = _slicePoints.y;
+        }
+
+        //
+        //  --- --- ---
+        // | 1 | 2 | 3 |
+        //  --- --- ---
+        // | 4 | 5 | 6 |
+        //  --- --- ---
+        // | 7 | 8 | 9 |
+        //  --- --- ---
+        //
+
+        // 1
+        _slices[0] = { 0, 0, _slicePoints.x, _slicePoints.y };
+        // 2
+        _slices[1] = { _slicePoints.x, 0, _slicePoints.w, _slicePoints.y };
+        // 3
+        _slices[2] = { _slicePoints.w, 0, _imageSrc.w, _slicePoints.y };
+        // 4
+        _slices[3] = { 0, _slicePoints.y, _slicePoints.x, _slicePoints.h };
+        // 5
+        _slices[4] = { _slicePoints.x, _slicePoints.y, _slicePoints.w, _slicePoints.h };
+        // 6
+        _slices[5] = { _slicePoints.w, _slicePoints.y, _imageSrc.w, _slicePoints.h };
+        // 7
+        _slices[6] = { 0, _slicePoints.h, _slicePoints.x, _imageSrc.h };
+        // 8
+        _slices[7] = { _slicePoints.x, _slicePoints.h, _slicePoints.w, _imageSrc.h };
+        // 9
+        _slices[8] = { _slicePoints.w, _slicePoints.h, _imageSrc.w, _imageSrc.h };
+
+        //
+        // Drawing coordinates accordingly
+        // assuming slice size is uniform and squared
+        // thus we can use _slice[0] width and height for reference.
+        //
+        auto t = Transform();
+
+        _fragments[0] = { t.x, t.y, _slices[0].w, _slices[0].h };
+        _fragments[1] = { t.x + _slices[0].w, t.y, t.w - _slices[0].w * 2, _slices[0].h };
+        _fragments[2] = { t.x + t.w - _slices[0].w, t.y, _slices[0].w, _slices[0].h };
+        _fragments[3] = { t.x, t.y + _slices[0].h, _slices[0].w, t.h - _slices[0].h * 2 };
+        _fragments[4] = { t.x + _slices[0].w, t.y + _slices[0].h, t.w - _slices[0].w * 2, t.h - _slices[0].h * 2 };
+        _fragments[5] = { t.x + t.w - _slices[0].w, t.y + _slices[0].h, _slices[0].w, t.h - _slices[0].h * 2 };
+        _fragments[6] = { t.x, t.y + t.h - _slices[0].h, _slices[0].w, _slices[0].h };
+        _fragments[7] = { t.x + _slices[0].w, t.y + t.h - _slices[0].h, t.w - _slices[0].w * 2, _slices[0].h };
+        _fragments[8] = { t.x + t.w - _slices[0].w, t.y + t.h - _slices[0].h, _slices[0].w, _slices[0].h };
+      }
+
+      void SetDrawType(DrawType drawType)
+      {
+        _drawType = drawType;
+
+        if (_drawType == DrawType::SLICED
+         && !IsSet(_slicePoints))
+        {
+          SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                      "Image #%lu: slice points not set!", _id);
+        }
       }
 
       void DrawImpl() override
       {
+        switch (_drawType)
+        {
+          case DrawType::NORMAL:
+            DrawNormal();
+            break;
+
+          case DrawType::SLICED:
+          {
+            if (IsSet(_slicePoints))
+            {
+              DrawSliced();
+            }
+            else
+            {
+              DrawNormal();
+            }
+          }
+          break;
+
+          case DrawType::TILED:
+            DrawTiled();
+            break;
+        }
+      }
+
+    private:
+      void DrawNormal()
+      {
         SDL_RenderCopyEx(_rendRef,
                          _image,
-                         &_src,
+                         nullptr,
                          &_transform,
                          0.0,
                          nullptr,
                          SDL_FLIP_NONE);
       }
 
-    private:
+      void DrawSliced()
+      {
+        for (size_t i = 0; i < 9; i++)
+        {
+          _tmp =
+          {
+            _slices[i].x,
+            _slices[i].y,
+            _slices[i].w - _slices[i].x,
+            _slices[i].h - _slices[i].y
+          };
+
+          SDL_RenderCopyEx(_rendRef,
+                           _image,
+                           &_tmp,
+                           &_fragments[i],
+                           0.0,
+                           nullptr,
+                           SDL_FLIP_NONE);
+        }
+      }
+
+      void DrawTiled()
+      {
+        auto& c = GetCornersCoordsAbsolute();
+
+        Manager::Get().PushClipRect();
+
+        SDL_RenderSetClipRect(_rendRef, &_transform);
+
+        for (int x = c.x; x < c.w; x += _imageSrc.w)
+        {
+          for (int y = c.y; y < c.h; y += _imageSrc.h)
+          {
+            _tmp = { x, y, _imageSrc.w, _imageSrc.h };
+
+            SDL_RenderCopyEx(_rendRef,
+                             _image,
+                             nullptr,
+                             &_tmp,
+                             0.0,
+                             nullptr,
+                             SDL_FLIP_NONE);
+          }
+        }
+
+        Manager::Get().PopClipRect();
+      }
+
+      DrawType _drawType = DrawType::NORMAL;
+
       SDL_Texture* _image = nullptr;
 
-      SDL_Rect _src;
+      SDL_Rect _imageSrc;
+      SDL_Rect _tmp;
+      SDL_Rect _slices[9];
+      SDL_Rect _fragments[9];
+      SDL_Rect _slicePoints;
   };
 
   // ===========================================================================
@@ -708,7 +911,7 @@ namespace RepaUI
                             SDL_Texture* image)
   {
     Canvas* c = (canvas == nullptr) ? _screenCanvas.get() : canvas;
-    Image* img = new Image(c, image, transform, _rendRef);
+    Image* img = new Image(c, image, transform);
     return static_cast<Image*>(c->Add(img));
   }
 
@@ -820,4 +1023,4 @@ namespace RepaUI
   }
 }
 
-#endif // S2G_H
+#endif // REPAUI_H

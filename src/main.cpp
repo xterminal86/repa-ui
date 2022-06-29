@@ -10,6 +10,8 @@ SDL_Window* _window = nullptr;
 const int kWindowWidth  = 640;
 const int kWindowHeight = 480;
 
+std::string message;
+
 SDL_Texture* LoadImage(const std::string& fname)
 {
   SDL_Texture* res = nullptr;
@@ -30,20 +32,32 @@ void Draw()
 
 void HoverTest(RepaUI::Element* sender)
 {
-  std::string str = "---->>>> element #" + std::to_string(sender->Id());
-  SDL_Log(str.data());
+  message = "---->>>> element #" + std::to_string(sender->Id());
+  SDL_Log(message.data());
 }
 
 void OutTest(RepaUI::Element* sender)
 {
-  std::string str = "<<<<---- element #" + std::to_string(sender->Id());
-  SDL_Log(str.data());
+  message = "<<<<---- element #" + std::to_string(sender->Id());
+  SDL_Log(message.data());
 }
 
 void MoveTest(RepaUI::Element* sender)
 {
-  std::string str = "element #" + std::to_string(sender->Id());
-  SDL_Log(str.data());
+  message = "element #" + std::to_string(sender->Id());
+  SDL_Log(message.data());
+}
+
+void DownTest(RepaUI::Element* sender)
+{
+  message = "\\/ element #" + std::to_string(sender->Id());
+  SDL_Log(message.data());
+}
+
+void UpTest(RepaUI::Element* sender)
+{
+  message = "/\\ element #" + std::to_string(sender->Id());
+  SDL_Log(message.data());
 }
 
 RepaUI::Canvas* canvas2 = nullptr;
@@ -52,38 +66,52 @@ RepaUI::Image* img2 = nullptr;
 void CreateGUI()
 {
   auto grid = LoadImage("grid.bmp");
-  auto canvas = RepaUI::CreateCanvas({ 0, 0, 300, 300 });
-  canvas->ShowOutline(true);
-  canvas->OnMouseOver = HoverTest;
-  canvas->OnMouseOut  = OutTest;
+  auto screenCanvas = RepaUI::CreateCanvas({ 0, 0, kWindowWidth, kWindowHeight });
+  //canvas->ShowOutline(true);
+  screenCanvas->OnMouseOver = HoverTest;
+  screenCanvas->OnMouseOut  = OutTest;
   //canvas->OnMouseMove = MoveTest;
 
-  auto img = LoadImage("checkers.bmp");
-  auto image = RepaUI::CreateImage(canvas, { 10, 10, 100, 100 }, img);
+  auto imgTex = LoadImage("slice-test-big.bmp");
+  auto image = RepaUI::CreateImage(screenCanvas, { 10, 10, 200, 200 }, imgTex);
+  image->SetSlicePoints({ 60, 60, 260, 260 });
+  image->SetDrawType(RepaUI::Image::DrawType::SLICED);
+  image->ShowOutline(true);
   image->OnMouseOver = HoverTest;
   image->OnMouseOut  = OutTest;
   //image->OnMouseMove = MoveTest;
 
-  auto img3 = RepaUI::CreateImage(canvas, { 50, 50, 100, 100 }, img);
+  auto imgWnd = LoadImage("window.bmp");
+  auto imageWnd = RepaUI::CreateImage(screenCanvas, { 0, 250, 200, 200 }, imgWnd);
+  imageWnd->SetSlicePoints({ 3, 3, 13, 13 });
+  imageWnd->SetDrawType(RepaUI::Image::DrawType::SLICED);
+
+  auto imgTex2 = LoadImage("checkers.bmp");
+  auto img3 = RepaUI::CreateImage(screenCanvas, { 50, 50, 100, 100 }, imgTex2);
+  img3->SetVisible(false);
   img3->OnMouseOver = HoverTest;
   img3->OnMouseOut  = OutTest;
 
-  canvas2 = RepaUI::CreateCanvas({ 225, 0, 100, 100 });
+  canvas2 = RepaUI::CreateCanvas({ 225, 0, 300, 300 });
   canvas2->OnMouseOver = HoverTest;
   canvas2->OnMouseOut  = OutTest;
   //canvas2->OnMouseMove = MoveTest;
   canvas2->ShowOutline(true);
+  //canvas2->SetVisible(false);
 
-  img2 = RepaUI::CreateImage(canvas2, { 50, 50, 100, 100 }, img);
+  img2 = RepaUI::CreateImage(canvas2, { 50, 50, 100, 100 }, imgTex2);
   img2->ShowOutline(true);
   img2->OnMouseOver = HoverTest;
   img2->OnMouseOut  = OutTest;
   //img2->OnMouseMove = MoveTest;
 
-  auto img4 = RepaUI::CreateImage(canvas2, { 60, 60, 100, 100 }, img);
+  auto img4 = RepaUI::CreateImage(canvas2, { 180, 60, 100, 100 }, imgTex2);
   img4->ShowOutline(true);
+  img4->SetDrawType(RepaUI::Image::DrawType::TILED);
   img4->OnMouseOver = HoverTest;
   img4->OnMouseOut  = OutTest;
+  img4->OnMouseDown = DownTest;
+  img4->OnMouseUp   = UpTest;
   //img4->OnMouseMove = MoveTest;
 }
 
@@ -127,7 +155,7 @@ int main(int argc, char* argv[])
 
   CreateGUI();
 
-  SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 255);
+  SDL_SetRenderDrawColor(_renderer, 0, 255, 255, 255);
 
   SDL_Event evt;
 
