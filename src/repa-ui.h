@@ -255,7 +255,7 @@ namespace RepaUI
         return _corners;
       }
 
-      void SetTransform(const SDL_Rect& transform);
+      virtual void SetTransform(const SDL_Rect& transform);
 
       void HandleEvents(const SDL_Event& evt)
       {
@@ -546,19 +546,11 @@ namespace RepaUI
         }
       }
 
-      void SetTransform(const SDL_Rect& transform)
+      void SetTransform(const SDL_Rect& transform) override
       {
         Element::SetTransform(transform);
         Element::UpdateTransform();
 
-        for (auto& kvp : _elements)
-        {
-          kvp.second->UpdateTransform();
-        }
-      }
-
-      void UpdateChildTransforms()
-      {
         for (auto& kvp : _elements)
         {
           kvp.second->UpdateTransform();
@@ -638,16 +630,7 @@ namespace RepaUI
   void Element::SetTransform(const SDL_Rect& transform)
   {
     _localTransform = transform;
-
-    if (_owner != nullptr)
-    {
-      _owner->UpdateChildTransforms();
-    }
-    else
-    {
-      // FIXME:
-      _transform = _localTransform;
-    }
+    UpdateTransform();
   }
 
   void Element::UpdateTransform()

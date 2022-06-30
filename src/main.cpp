@@ -66,6 +66,10 @@ RepaUI::Image* img4 = nullptr;
 
 RepaUI::Element* elementToControl = nullptr;
 
+int controlIndex = 0;
+
+std::vector<RepaUI::Element*> elements;
+
 void CreateGUI()
 {
   auto grid = LoadImage("grid.bmp");
@@ -105,13 +109,13 @@ void CreateGUI()
   //canvas2->SetVisible(false);
 
   img2 = RepaUI::CreateImage(canvas2, { 50, 50, 100, 100 }, imgTex2);
-  img2->ShowOutline(true);
+  //img2->ShowOutline(true);
   img2->OnMouseOver = HoverTest;
   img2->OnMouseOut  = OutTest;
   //img2->OnMouseMove = MoveTest;
 
   img4 = RepaUI::CreateImage(canvas2, { 180, 60, 100, 100 }, imgTex2);
-  img4->ShowOutline(true);
+  //img4->ShowOutline(true);
   img4->SetDrawType(RepaUI::Image::DrawType::TILED);
   //img4->SetTileRate({ 2, 2 });
   img4->OnMouseOver = HoverTest;
@@ -120,7 +124,11 @@ void CreateGUI()
   img4->OnMouseUp   = UpTest;
   //img4->OnMouseMove = MoveTest;
 
-  elementToControl = canvas2;
+  elements.push_back(canvas2);
+  elements.push_back(img2);
+  elements.push_back(img4);
+
+  elementToControl = elements[controlIndex];
 }
 
 int main(int argc, char* argv[])
@@ -230,6 +238,16 @@ int main(int argc, char* argv[])
             ry++;
 
             img4->SetTileRate({ rx, ry });
+          }
+
+          if (evt.key.keysym.sym == SDLK_TAB)
+          {
+            elementToControl->ShowOutline(false);
+            controlIndex++;
+            controlIndex %= elements.size();
+            elementToControl = elements[controlIndex];
+            elementToControl->ShowOutline(true);
+            SDL_Log("Active elements #%lu", elementToControl->Id());
           }
         }
         break;
