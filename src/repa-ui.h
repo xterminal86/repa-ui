@@ -66,6 +66,12 @@ namespace RepaUI
 
         SDL_GetWindowSize(_windowRef, &_windowWidth, &_windowHeight);
 
+        _renderTexture = SDL_CreateTexture(_rendRef,
+                                           SDL_PIXELFORMAT_RGBA32,
+                                           SDL_TEXTUREACCESS_TARGET,
+                                           _windowWidth,
+                                           _windowHeight);
+
         CreateScreenCanvas();
         PrepareImages();
 
@@ -150,6 +156,8 @@ namespace RepaUI
       }
 
       void CreateScreenCanvas();
+      void DrawCanvases();
+      void DrawAndClipCanvases();
 
       SDL_Renderer* _rendRef = nullptr;
       SDL_Window* _windowRef = nullptr;
@@ -160,6 +168,8 @@ namespace RepaUI
       SDL_Texture* _btnPressed  = nullptr;
       SDL_Texture* _btnHover    = nullptr;
       SDL_Texture* _btnDisabled = nullptr;
+
+      SDL_Texture* _renderTexture    = nullptr;
 
       bool _initialized = false;
 
@@ -557,30 +567,35 @@ namespace RepaUI
         }
       }
 
-      void Draw()
+      void DrawImpl() override {}
+
+    private:
+      void DrawAndClip()
       {
         if (!_visible)
         {
           return;
         }
 
+        SDL_SetRenderTarget(_rendRef, Manager::Get()._renderTexture);
+        SDL_RenderClear(_rendRef);
+
         Element::Draw();
-
-        Manager::Get().PushClipRect();
-
-        SDL_RenderSetClipRect(_rendRef, &_transform);
 
         for (auto& kvp : _elements)
         {
           kvp.second->Draw();
         }
 
-        Manager::Get().PopClipRect();
+        SDL_SetRenderTarget(_rendRef, nullptr);
+        SDL_RenderSetClipRect(_rendRef, &_transform);
+        SDL_RenderCopy(_rendRef,
+                       Manager::Get()._renderTexture,
+                       &_transform,
+                       &_transform);
+        SDL_RenderSetClipRect(_rendRef, nullptr);
       }
 
-      void DrawImpl() override {}
-
-    private:
       Element* Add(Element* e)
       {
         if (e == nullptr)
@@ -901,27 +916,13 @@ namespace RepaUI
       {
         auto& c = GetCornersCoordsAbsolute();
 
+        SDL_RenderSetClipRect(_rendRef, &_transform);
+
         for (int x = c.x; x < c.w; x += _stepX)
         {
           for (int y = c.y; y < c.h; y += _stepY)
           {
             _tmp = { x, y, _stepX, _stepY };
-
-            //
-            // If tiling doesn't fit perfectly into image size,
-            // calculate remaining clipping width and height
-            // for the last step. Artifacts may occur though
-            // if transform size doesn't divide wholly on tiling rate.
-            //
-            if (_tmp.x + _tmp.w > c.w)
-            {
-              _tmp.w = c.w - _tmp.x;
-            }
-
-            if (_tmp.y + _tmp.h > c.h)
-            {
-              _tmp.h = c.h - _tmp.y;
-            }
 
             SDL_RenderCopyEx(_rendRef,
                              _image,
@@ -932,6 +933,8 @@ namespace RepaUI
                              SDL_FLIP_NONE);
           }
         }
+
+        SDL_RenderSetClipRect(_rendRef, nullptr);
       }
 
       DrawType _drawType = DrawType::NORMAL;
@@ -977,12 +980,17 @@ namespace RepaUI
   // ===========================================================================
   void Manager::Draw()
   {
+    DrawAndClipCanvases();
+  }
+
+  void Manager::DrawAndClipCanvases()
+  {
+    _screenCanvas->DrawAndClip();
+
     for (auto& kvp : _canvases)
     {
-      kvp.second->Draw();
+      kvp.second->DrawAndClip();
     }
-
-    _screenCanvas->Draw();
   }
 
   void Manager::HandleEvents(const SDL_Event& evt)

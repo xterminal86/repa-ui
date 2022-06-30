@@ -61,12 +61,13 @@ void UpTest(RepaUI::Element* sender)
 }
 
 RepaUI::Canvas* canvas2 = nullptr;
+RepaUI::Image* image = nullptr;
 RepaUI::Image* img2 = nullptr;
 RepaUI::Image* img4 = nullptr;
 
 RepaUI::Element* elementToControl = nullptr;
 
-int controlIndex = 0;
+int controlIndex = 3;
 
 std::vector<RepaUI::Element*> elements;
 
@@ -74,14 +75,14 @@ void CreateGUI()
 {
   auto grid = LoadImage("grid.bmp");
   auto screenCanvas = RepaUI::CreateCanvas({ 0, 0, kWindowWidth, kWindowHeight });
-  //canvas->ShowOutline(true);
-  screenCanvas->OnMouseOver = HoverTest;
-  screenCanvas->OnMouseOut  = OutTest;
+  //screenCanvas->ShowOutline(true);
+  //screenCanvas->OnMouseOver = HoverTest;
+  //screenCanvas->OnMouseOut  = OutTest;
   //canvas->OnMouseMove = MoveTest;
 
   auto imgTex = LoadImage("slice-test.bmp");
   //auto imgTex = LoadImage("slice-non-uniform.bmp");
-  auto image = RepaUI::CreateImage(screenCanvas, { 10, 10, 32, 32 }, imgTex);
+  image = RepaUI::CreateImage(screenCanvas, { 10, 10, 32, 32 }, imgTex);
   image->SetSlicePoints({ 6, 6, 25, 25 });
   //image->SetSlicePoints({ 5, 5, 19, 20 });
   image->SetDrawType(RepaUI::Image::DrawType::SLICED);
@@ -96,35 +97,37 @@ void CreateGUI()
   imageWnd->SetDrawType(RepaUI::Image::DrawType::SLICED);
 
   auto imgTex2 = LoadImage("checkers.bmp");
-  auto img3 = RepaUI::CreateImage(screenCanvas, { 50, 50, 100, 100 }, imgTex2);
-  img3->SetVisible(false);
+  auto img3 = RepaUI::CreateImage(screenCanvas, { 0, 50, 100, 100 }, imgTex2);
+  img3->SetVisible(true);
   img3->OnMouseOver = HoverTest;
   img3->OnMouseOut  = OutTest;
 
-  canvas2 = RepaUI::CreateCanvas({ 225, 0, 300, 300 });
+  canvas2 = RepaUI::CreateCanvas({ 225, 0, 350, 350 });
   canvas2->OnMouseOver = HoverTest;
   canvas2->OnMouseOut  = OutTest;
   //canvas2->OnMouseMove = MoveTest;
   canvas2->ShowOutline(true);
   //canvas2->SetVisible(false);
 
-  img2 = RepaUI::CreateImage(canvas2, { 50, 50, 100, 100 }, imgTex2);
-  //img2->ShowOutline(true);
+  img2 = RepaUI::CreateImage(canvas2, { -50, 50, 100, 100 }, imgTex2);
+  img2->ShowOutline(true);
   img2->OnMouseOver = HoverTest;
   img2->OnMouseOut  = OutTest;
   //img2->OnMouseMove = MoveTest;
 
   img4 = RepaUI::CreateImage(canvas2, { 180, 60, 100, 100 }, imgTex2);
-  //img4->ShowOutline(true);
+  img4->ShowOutline(true);
   img4->SetDrawType(RepaUI::Image::DrawType::TILED);
-  //img4->SetTileRate({ 2, 2 });
+  img4->SetTileRate({ 3, 3 });
   img4->OnMouseOver = HoverTest;
   img4->OnMouseOut  = OutTest;
   img4->OnMouseDown = DownTest;
   img4->OnMouseUp   = UpTest;
   //img4->OnMouseMove = MoveTest;
 
+  elements.push_back(image);
   elements.push_back(canvas2);
+  elements.push_back(img3);
   elements.push_back(img2);
   elements.push_back(img4);
 
