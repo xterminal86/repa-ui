@@ -587,13 +587,16 @@ namespace RepaUI
           kvp.second->Draw();
         }
 
+        _fromTextureSrc = _transform;
+
+        _fromTextureSrc.w++;
+        _fromTextureSrc.h++;
+
         SDL_SetRenderTarget(_rendRef, nullptr);
-        SDL_RenderSetClipRect(_rendRef, &_transform);
         SDL_RenderCopy(_rendRef,
                        Manager::Get()._renderTexture,
-                       &_transform,
+                       &_fromTextureSrc,
                        &_transform);
-        SDL_RenderSetClipRect(_rendRef, nullptr);
       }
 
       Element* Add(Element* e)
@@ -623,6 +626,8 @@ namespace RepaUI
       std::map<uint64_t, std::unique_ptr<Element>> _elements;
 
       Element* _topElement = nullptr;
+
+      SDL_Rect _fromTextureSrc;
 
       friend class Manager;
   };
@@ -727,8 +732,6 @@ namespace RepaUI
         SetTileRate({ 1, 1 });
 
         _color = { 255, 255, 255, 255 };
-
-        SDL_SetTextureBlendMode(_image, SDL_BLENDMODE_BLEND);
       }
 
       void SetColor(const SDL_Color& color)
@@ -739,6 +742,14 @@ namespace RepaUI
       const SDL_Color& GetColor()
       {
         return _color;
+      }
+
+      void SetBlending(bool isSet)
+      {
+        SDL_SetTextureBlendMode(_image,
+                                isSet
+                                ? SDL_BLENDMODE_BLEND
+                                : SDL_BLENDMODE_NONE);
       }
 
       void SetTileRate(const std::pair<size_t, size_t>& tileRate)
@@ -998,11 +1009,6 @@ namespace RepaUI
   //                             IMPLEMENTATIONS
   // ===========================================================================
   void Manager::Draw()
-  {
-    DrawAndClipCanvases();
-  }
-
-  void Manager::DrawAndClipCanvases()
   {
     _screenCanvas->DrawAndClip();
 

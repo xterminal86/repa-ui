@@ -116,8 +116,10 @@ void CreateGUI()
   //img2->OnMouseMove = MoveTest;
 
   img4 = RepaUI::CreateImage(canvas2, { 180, 60, 100, 100 }, imgTex2);
+  //img4 = RepaUI::CreateImage(canvas2, { 0, 0, 350, 350 }, imgTex2);
   img4->ShowOutline(true);
   img4->SetDrawType(RepaUI::Image::DrawType::TILED);
+  img4->SetBlending(true);
   img4->SetColor({ 255, 255, 255, 128 });
   //img4->SetTileRate({ 3, 3 });
   img4->OnMouseOver = HoverTest;
