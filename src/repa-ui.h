@@ -725,6 +725,20 @@ namespace RepaUI
                          &_imageSrc.h);
 
         SetTileRate({ 1, 1 });
+
+        _color = { 255, 255, 255, 255 };
+
+        SDL_SetTextureBlendMode(_image, SDL_BLENDMODE_BLEND);
+      }
+
+      void SetColor(const SDL_Color& color)
+      {
+        _color = color;
+      }
+
+      const SDL_Color& GetColor()
+      {
+        return _color;
       }
 
       void SetTileRate(const std::pair<size_t, size_t>& tileRate)
@@ -819,6 +833,9 @@ namespace RepaUI
 
       void DrawImpl() override
       {
+        SDL_SetTextureColorMod(_image, _color.r, _color.g, _color.b);
+        SDL_SetTextureAlphaMod(_image, _color.a);
+
         switch (_drawType)
         {
           case DrawType::NORMAL:
@@ -946,6 +963,8 @@ namespace RepaUI
       SDL_Rect _slices[9];
       SDL_Rect _fragments[9];
       SDL_Rect _slicePoints;
+
+      SDL_Color _color;
 
       std::pair<size_t, size_t> _tileRate;
       std::vector<std::pair<int, int>> _swh;
