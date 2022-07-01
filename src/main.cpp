@@ -60,81 +60,47 @@ void UpTest(RepaUI::Element* sender)
   SDL_Log(message.data());
 }
 
-RepaUI::Canvas* canvas2 = nullptr;
-RepaUI::Image* image = nullptr;
-RepaUI::Image* img2 = nullptr;
-RepaUI::Image* img4 = nullptr;
-
 RepaUI::Element* elementToControl = nullptr;
 
-int controlIndex = 3;
+int controlIndex = 0;
 
 std::vector<RepaUI::Element*> elements;
 
 void CreateGUI()
 {
-  auto grid = LoadImage("grid.bmp");
-  auto screenCanvas = RepaUI::CreateCanvas({ 0, 0, kWindowWidth, kWindowHeight });
-  //screenCanvas->ShowOutline(true);
-  //screenCanvas->OnMouseOver = HoverTest;
-  //screenCanvas->OnMouseOut  = OutTest;
-  //canvas->OnMouseMove = MoveTest;
+  auto slices   = LoadImage("slice-test.bmp");
+  auto checkers = LoadImage("checkers.bmp");
+  auto slicesNu = LoadImage("slice-nu.bmp");
 
-  auto imgTex = LoadImage("slice-test.bmp");
-  //auto imgTex = LoadImage("slice-non-uniform.bmp");
-  image = RepaUI::CreateImage(screenCanvas, { 10, 10, 32, 32 }, imgTex);
-  image->SetSlicePoints({ 6, 6, 25, 25 });
-  //image->SetSlicePoints({ 5, 5, 19, 20 });
-  image->SetDrawType(RepaUI::Image::DrawType::SLICED);
-  //image->ShowOutline(true);
-  image->OnMouseOver = HoverTest;
-  image->OnMouseOut  = OutTest;
-  //image->OnMouseMove = MoveTest;
+  auto canvas1 = RepaUI::CreateCanvas({ 0, 0, 300, 300 });
+  auto img1 = RepaUI::CreateImage(canvas1, { 0, 0, 100, 100 }, slices);
+  img1->OnMouseOver = HoverTest;
+  img1->OnMouseOut  = OutTest;
 
-  auto imgWnd = LoadImage("window.bmp");
-  auto imageWnd = RepaUI::CreateImage(screenCanvas, { 0, 250, 200, 200 }, imgWnd);
-  imageWnd->SetSlicePoints({ 3, 3, 12, 12 });
-  imageWnd->SetDrawType(RepaUI::Image::DrawType::SLICED);
+  auto img2 = RepaUI::CreateImage(canvas1, { 0, 110, 100, 100 }, checkers);
+  img2->SetDrawType(RepaUI::Image::DrawType::TILED);
+  img2->OnMouseOver = HoverTest;
+  img2->OnMouseOut  = OutTest;
 
-  auto imgTex2 = LoadImage("checkers.bmp");
-  auto img3 = RepaUI::CreateImage(screenCanvas, { 0, 50, 100, 100 }, imgTex2);
-  img3->SetVisible(true);
+  auto img3 = RepaUI::CreateImage(canvas1, { 110, 0, 100, 100 }, slices);
+  img3->SetDrawType(RepaUI::Image::DrawType::SLICED);
+  img3->SetSlicePoints({ 6, 6, 25, 25 });
   img3->OnMouseOver = HoverTest;
   img3->OnMouseOut  = OutTest;
 
-  canvas2 = RepaUI::CreateCanvas({ 225, 0, 350, 350 });
-  canvas2->OnMouseOver = HoverTest;
-  canvas2->OnMouseOut  = OutTest;
-  //canvas2->OnMouseMove = MoveTest;
-  canvas2->ShowOutline(true);
-  //canvas2->SetVisible(false);
-
-  img2 = RepaUI::CreateImage(canvas2, { -50, 50, 100, 100 }, imgTex2);
-  img2->ShowOutline(true);
-  img2->OnMouseOver = HoverTest;
-  img2->OnMouseOut  = OutTest;
-  //img2->OnMouseMove = MoveTest;
-
-  img4 = RepaUI::CreateImage(canvas2, { 180, 60, 100, 100 }, imgTex2);
-  //img4 = RepaUI::CreateImage(canvas2, { 0, 0, 350, 350 }, imgTex2);
-  img4->ShowOutline(true);
-  img4->SetDrawType(RepaUI::Image::DrawType::TILED);
-  img4->SetBlending(true);
-  img4->SetColor({ 255, 255, 255, 128 });
-  //img4->SetTileRate({ 3, 3 });
+  auto img4 = RepaUI::CreateImage(canvas1, { 110, 110, 100, 100 }, slicesNu);
+  img4->SetDrawType(RepaUI::Image::DrawType::SLICED);
+  img4->SetSlicePoints({ 5, 5, 19, 20 });
   img4->OnMouseOver = HoverTest;
   img4->OnMouseOut  = OutTest;
-  img4->OnMouseDown = DownTest;
-  img4->OnMouseUp   = UpTest;
-  //img4->OnMouseMove = MoveTest;
 
-  elements.push_back(image);
-  elements.push_back(canvas2);
-  elements.push_back(img3);
+  elements.push_back(canvas1);
+  elements.push_back(img1);
   elements.push_back(img2);
+  elements.push_back(img3);
   elements.push_back(img4);
 
-  elementToControl = elements[controlIndex];
+  elementToControl = elements.back();
 }
 
 int main(int argc, char* argv[])
@@ -175,7 +141,7 @@ int main(int argc, char* argv[])
 
   //SDL_RenderSetScale(_renderer, 4, 4);
 
-  RepaUI::Init(_renderer, _window);
+  RepaUI::Init(_window);
 
   CreateGUI();
 
@@ -229,21 +195,32 @@ int main(int argc, char* argv[])
 
           if (evt.key.keysym.sym == SDLK_SPACE)
           {
-            bool v = canvas2->IsVisible();
-            canvas2->SetVisible(!v);
-            //bool v = img2->IsVisible();
-            //img2->SetVisible(!v);
+            bool v = elementToControl->IsVisible();
+            elementToControl->SetVisible(!v);
           }
 
           if (evt.key.keysym.sym == SDLK_KP_PLUS)
           {
-            static int rx = 1;
-            static int ry = 1;
+            RepaUI::Image* i = static_cast<RepaUI::Image*>(elementToControl);
 
-            rx++;
-            ry++;
+            auto tr = i->GetTileRate();
 
-            img4->SetTileRate({ rx, ry });
+            tr.first++;
+            tr.second++;
+
+            i->SetTileRate(tr);
+          }
+
+          if (evt.key.keysym.sym == SDLK_KP_MINUS)
+          {
+            RepaUI::Image* i = static_cast<RepaUI::Image*>(elementToControl);
+
+            auto tr = i->GetTileRate();
+
+            tr.first--;
+            tr.second--;
+
+            i->SetTileRate(tr);
           }
 
           if (evt.key.keysym.sym == SDLK_TAB)
@@ -254,6 +231,13 @@ int main(int argc, char* argv[])
             elementToControl = elements[controlIndex];
             elementToControl->ShowOutline(true);
             SDL_Log("Active elements #%lu", elementToControl->Id());
+          }
+
+          if (evt.key.keysym.sym == SDLK_o)
+          {
+            static bool val = true;
+            elementToControl->ShowOutline(val);
+            val = !val;
           }
         }
         break;
