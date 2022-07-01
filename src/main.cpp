@@ -74,9 +74,12 @@ void CreateGUI()
 
   auto canvas1 = RepaUI::CreateCanvas({ 0, 0, 300, 300 });
   auto img1 = RepaUI::CreateImage(canvas1, { 0, 0, 100, 100 }, slices);
+  img1->SetSlicePoints({ 6, 6, 25, 25 });
+  img1->SetDrawType(RepaUI::Image::DrawType::SLICED);
   img1->OnMouseOver = HoverTest;
   img1->OnMouseOut  = OutTest;
 
+  /*
   auto img2 = RepaUI::CreateImage(canvas1, { 0, 110, 100, 100 }, checkers);
   img2->SetDrawType(RepaUI::Image::DrawType::TILED);
   img2->OnMouseOver = HoverTest;
@@ -93,12 +96,13 @@ void CreateGUI()
   img4->SetSlicePoints({ 5, 5, 19, 20 });
   img4->OnMouseOver = HoverTest;
   img4->OnMouseOut  = OutTest;
+  */
 
   elements.push_back(canvas1);
   elements.push_back(img1);
-  elements.push_back(img2);
-  elements.push_back(img3);
-  elements.push_back(img4);
+  //elements.push_back(img2);
+  //elements.push_back(img3);
+  //elements.push_back(img4);
 
   elementToControl = elements.back();
 }
@@ -139,7 +143,7 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  //SDL_RenderSetScale(_renderer, 4, 4);
+  SDL_RenderSetScale(_renderer, 4, 4);
 
   RepaUI::Init(_window);
 
