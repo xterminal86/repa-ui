@@ -54,14 +54,14 @@ namespace RepaUI
         return instance;
       }
 
-      void Init(SDL_Renderer* rendRef, SDL_Window* windowRef)
+      void Init(SDL_Window* windowRef)
       {
         if (_initialized)
         {
           return;
         }
 
-        _rendRef   = rendRef;
+        _rendRef   = SDL_GetRenderer(windowRef);
         _windowRef = windowRef;
 
         SDL_GetWindowSize(_windowRef, &_windowWidth, &_windowHeight);
@@ -69,8 +69,16 @@ namespace RepaUI
         _renderTexture = SDL_CreateTexture(_rendRef,
                                            SDL_PIXELFORMAT_RGBA32,
                                            SDL_TEXTUREACCESS_TARGET,
-                                           _windowWidth,
-                                           _windowHeight);
+                                           _windowWidth * 3,
+                                           _windowHeight * 3);
+
+        _renderDst =
+        {
+          _windowWidth,
+          _windowHeight,
+          _windowWidth,
+          _windowHeight
+        };
 
         CreateScreenCanvas();
         PrepareImages();
@@ -89,6 +97,10 @@ namespace RepaUI
       // =======================================================================
 
     private:
+      void Clip();
+      void DrawOnTarget(SDL_Texture* target,
+                        const std::function<void()>& fn);
+
       const uint64_t& GetNewId()
       {
         _globalId++;
@@ -141,10 +153,7 @@ namespace RepaUI
           _currentClipRect = _renderClipRects.top();
           _renderClipRects.pop();
 
-          if (_currentClipRect.x == 0
-           && _currentClipRect.y == 0
-           && _currentClipRect.w == 0
-           && _currentClipRect.h == 0)
+          if (!IsSet(_currentClipRect))
           {
             SDL_RenderSetClipRect(_rendRef, nullptr);
           }
@@ -156,8 +165,6 @@ namespace RepaUI
       }
 
       void CreateScreenCanvas();
-      void DrawCanvases();
-      void DrawAndClipCanvases();
 
       SDL_Renderer* _rendRef = nullptr;
       SDL_Window* _windowRef = nullptr;
@@ -170,6 +177,8 @@ namespace RepaUI
       SDL_Texture* _btnDisabled = nullptr;
 
       SDL_Texture* _renderTexture    = nullptr;
+
+      SDL_Rect _renderDst;
 
       bool _initialized = false;
 
@@ -257,10 +266,10 @@ namespace RepaUI
 
       const SDL_Rect& GetCornersCoordsAbsolute()
       {
-        _corners.x = _transform.x;
-        _corners.y = _transform.y;
-        _corners.w = _transform.x + _transform.w;
-        _corners.h = _transform.y + _transform.h;
+        _corners.x = Transform().x;
+        _corners.y = Transform().y;
+        _corners.w = Transform().x + Transform().w;
+        _corners.h = Transform().y + Transform().h;
 
         return _corners;
       }
@@ -377,11 +386,10 @@ namespace RepaUI
 
       void SetOutline()
       {
-        _debugOutline[0] = { _transform.x, _transform.y };
-        _debugOutline[1] = { _transform.x + _transform.w, _transform.y };
-        _debugOutline[2] = { _transform.x + _transform.w, _transform.y + _transform.h };
-        _debugOutline[3] = { _transform.x, _transform.y + _transform.h };
-        _debugOutline[4] = { _transform.x, _transform.y };
+        _debugOutline = _transform;
+
+        _debugOutline.x += Manager::Get()._renderDst.x;
+        _debugOutline.y += Manager::Get()._renderDst.y;
       }
 
       void DrawOutline()
@@ -398,17 +406,17 @@ namespace RepaUI
           SDL_SetRenderDrawColor(_rendRef, 255, 0, 0, 255);
         }
 
-        SDL_RenderDrawLines(_rendRef, _debugOutline, 5);
+        SDL_RenderDrawRect(_rendRef, &_debugOutline);
         SDL_RenderDrawLine(_rendRef,
-                           _transform.x,
-                           _transform.y,
-                           _transform.x + _transform.w,
-                           _transform.y + _transform.h);
+                           _debugOutline.x,
+                           _debugOutline.y,
+                           _debugOutline.x + _transform.w - 1,
+                           _debugOutline.y + _transform.h - 1);
         SDL_RenderDrawLine(_rendRef,
-                           _transform.x + _transform.w,
-                           _transform.y,
-                           _transform.x,
-                           _transform.y + _transform.h);
+                           _debugOutline.x + _transform.w - 1,
+                           _debugOutline.y,
+                           _debugOutline.x,
+                           _debugOutline.y + _transform.h - 1);
         SDL_SetRenderDrawColor(_rendRef, r, g, b, a);
       }
 
@@ -467,11 +475,12 @@ namespace RepaUI
 
       SDL_Rect _transform;
       SDL_Rect _localTransform;
+      SDL_Rect _renderTransform;
       SDL_Rect _corners;
 
       SDL_Renderer* _rendRef = nullptr;
 
-      SDL_Point _debugOutline[5];
+      SDL_Rect _debugOutline;
 
       uint64_t _id = 0;
 
@@ -570,15 +579,12 @@ namespace RepaUI
       void DrawImpl() override {}
 
     private:
-      void DrawAndClip()
+      void Draw()
       {
         if (!_visible)
         {
           return;
         }
-
-        SDL_SetRenderTarget(_rendRef, Manager::Get()._renderTexture);
-        SDL_RenderClear(_rendRef);
 
         Element::Draw();
 
@@ -586,17 +592,6 @@ namespace RepaUI
         {
           kvp.second->Draw();
         }
-
-        _fromTextureSrc = _transform;
-
-        _fromTextureSrc.w++;
-        _fromTextureSrc.h++;
-
-        SDL_SetRenderTarget(_rendRef, nullptr);
-        SDL_RenderCopy(_rendRef,
-                       Manager::Get()._renderTexture,
-                       &_fromTextureSrc,
-                       &_transform);
       }
 
       Element* Add(Element* e)
@@ -626,8 +621,6 @@ namespace RepaUI
       std::map<uint64_t, std::unique_ptr<Element>> _elements;
 
       Element* _topElement = nullptr;
-
-      SDL_Rect _fromTextureSrc;
 
       friend class Manager;
   };
@@ -668,6 +661,13 @@ namespace RepaUI
       _transform.w = _localTransform.w;
       _transform.h = _localTransform.h;
     }
+
+    _renderTransform = Manager::Get()._renderDst;
+
+    _renderTransform.x += _transform.x;
+    _renderTransform.y += _transform.y;
+    _renderTransform.w = _transform.w;
+    _renderTransform.h = _transform.h;
 
     SetOutline();
   }
@@ -752,15 +752,19 @@ namespace RepaUI
                                 : SDL_BLENDMODE_NONE);
       }
 
+      const std::pair<size_t, size_t>& GetTileRate()
+      {
+        return _tileRate;
+      }
+
       void SetTileRate(const std::pair<size_t, size_t>& tileRate)
       {
         _tileRate = tileRate;
 
-        _tileRate.first  = Clamp(_tileRate.first,  (size_t)1, (size_t)_transform.w);
-        _tileRate.second = Clamp(_tileRate.second, (size_t)1, (size_t)_transform.h);
+        _tileRate.first  = Clamp(_tileRate.first,  (size_t)1, (size_t)_localTransform.w);
+        _tileRate.second = Clamp(_tileRate.second, (size_t)1, (size_t)_localTransform.h);
 
-        _stepX = _transform.w / _tileRate.first;
-        _stepY = _transform.h / _tileRate.second;
+        CalculateSteps();
       }
 
       void SetSlicePoints(const SDL_Rect& slicePoints)
@@ -833,13 +837,6 @@ namespace RepaUI
       void SetDrawType(DrawType drawType)
       {
         _drawType = drawType;
-
-        if (_drawType == DrawType::SLICED
-         && !IsSet(_slicePoints))
-        {
-          SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                      "Image #%lu: slice points not set!", _id);
-        }
       }
 
       void DrawImpl() override
@@ -869,10 +866,20 @@ namespace RepaUI
           case DrawType::TILED:
             DrawTiled();
             break;
+
+          default:
+            DrawNormal();
+            break;
         }
       }
 
     private:
+      void CalculateSteps()
+      {
+        _stepX = _localTransform.w / _tileRate.first;
+        _stepY = _localTransform.h / _tileRate.second;
+      }
+
       void CalculateFragments()
       {
         //
@@ -907,13 +914,10 @@ namespace RepaUI
 
       void DrawNormal()
       {
-        SDL_RenderCopyEx(_rendRef,
-                         _image,
-                         nullptr,
-                         &_transform,
-                         0.0,
-                         nullptr,
-                         SDL_FLIP_NONE);
+        SDL_RenderCopy(_rendRef,
+                        _image,
+                        nullptr,
+                        &_renderTransform);
       }
 
       void DrawSliced()
@@ -922,7 +926,7 @@ namespace RepaUI
 
         for (size_t i = 0; i < 9; i++)
         {
-          _tmp =
+          _renderDst =
           {
             _slices[i].x,
             _slices[i].y,
@@ -930,13 +934,10 @@ namespace RepaUI
             _slices[i].h - _slices[i].y
           };
 
-          SDL_RenderCopyEx(_rendRef,
-                           _image,
-                           &_tmp,
-                           &_fragments[i],
-                           0.0,
-                           nullptr,
-                           SDL_FLIP_NONE);
+          SDL_RenderCopy(_rendRef,
+                          _image,
+                          &_renderDst,
+                          &_fragments[i]);
         }
       }
 
@@ -944,21 +945,24 @@ namespace RepaUI
       {
         auto& c = GetCornersCoordsAbsolute();
 
-        SDL_RenderSetClipRect(_rendRef, &_transform);
+        SDL_RenderSetClipRect(_rendRef, &_renderTransform);
 
         for (int x = c.x; x < c.w; x += _stepX)
         {
           for (int y = c.y; y < c.h; y += _stepY)
           {
-            _tmp = { x, y, _stepX, _stepY };
+            _renderDst =
+            {
+              x + Manager::Get()._renderDst.x,
+              y + Manager::Get()._renderDst.y,
+              _stepX,
+              _stepY
+            };
 
-            SDL_RenderCopyEx(_rendRef,
-                             _image,
-                             nullptr,
-                             &_tmp,
-                             0.0,
-                             nullptr,
-                             SDL_FLIP_NONE);
+            SDL_RenderCopy(_rendRef,
+                            _image,
+                            nullptr,
+                            &_renderDst);
           }
         }
 
@@ -970,7 +974,7 @@ namespace RepaUI
       SDL_Texture* _image = nullptr;
 
       SDL_Rect _imageSrc;
-      SDL_Rect _tmp;
+      SDL_Rect _renderDst;
       SDL_Rect _slices[9];
       SDL_Rect _fragments[9];
       SDL_Rect _slicePoints;
@@ -1010,12 +1014,52 @@ namespace RepaUI
   // ===========================================================================
   void Manager::Draw()
   {
-    _screenCanvas->DrawAndClip();
-
-    for (auto& kvp : _canvases)
+    DrawOnTarget(_renderTexture,
+                 [this]()
     {
-      kvp.second->DrawAndClip();
+      _screenCanvas->Draw();
+
+      for (auto& kvp : _canvases)
+      {
+        kvp.second->Draw();
+      }
+    });
+
+    Clip();
+  }
+
+  void Manager::DrawOnTarget(SDL_Texture* target,
+                             const std::function<void()>& fn)
+  {
+    PushClipRect();
+    auto old = SDL_GetRenderTarget(_rendRef);
+    SDL_SetRenderTarget(_rendRef, target);
+    SDL_RenderClear(_rendRef);
+
+    fn();
+
+    PopClipRect();
+    SDL_SetRenderTarget(_rendRef, old);
+  }
+
+  void Manager::Clip()
+  {
+    auto old = SDL_GetRenderTarget(_rendRef);
+    SDL_SetRenderTarget(_rendRef, nullptr);
+
+    for (auto it = _canvases.rbegin(); it != _canvases.rend(); it++)
+    {
+      auto& t = it->second->_transform;
+
+      SDL_RenderSetClipRect(_rendRef, &t);
+      SDL_RenderCopy(_rendRef,
+                     _renderTexture,
+                     &_renderDst,
+                     nullptr);
     }
+
+    SDL_RenderSetClipRect(_rendRef, nullptr);
+    SDL_SetRenderTarget(_rendRef, old);
   }
 
   void Manager::HandleEvents(const SDL_Event& evt)
@@ -1085,9 +1129,9 @@ namespace RepaUI
   // ===========================================================================
   //                              SHORTCUTS
   // ===========================================================================
-  void Init(SDL_Renderer* rendRef, SDL_Window* screenRef)
+  void Init(SDL_Window* screenRef)
   {
-    Manager::Get().Init(rendRef, screenRef);
+    Manager::Get().Init(screenRef);
   }
 
   void HandleEvents(const SDL_Event& evt)
