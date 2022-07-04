@@ -73,23 +73,34 @@ void CreateGUI()
   //auto sliceImg    = LoadImage("slice-test.bmp");
   auto wndImg      = LoadImage("window.bmp");
   auto checkersImg = LoadImage("checkers.bmp");
+  auto btnImg      = LoadImage("button.bmp");
 
   auto canvas = RepaUI::CreateCanvas({ 0, 0, 500, 500 });
   auto img1 = RepaUI::CreateImage(canvas, { 0, 0, 100, 100 }, sliceImg);
   img1->SetDrawType(RepaUI::Image::DrawType::NORMAL);
 
-  auto img2 = RepaUI::CreateImage(canvas, { 150, 0, 100, 100 }, checkersImg);
-  img2->SetDrawType(RepaUI::Image::DrawType::TILED);
+  //auto img2 = RepaUI::CreateImage(canvas, { 150, 0, 100, 100 }, checkersImg);
+  //img2->SetDrawType(RepaUI::Image::DrawType::TILED);
 
   auto img3 = RepaUI::CreateImage(canvas, { 0, 300, 300, 300 }, sliceImg);
   //img3->SetSlicePoints({ 7, 7, 24, 24 });
   img3->SetSlicePoints({ 70, 70, 249, 249 });
   img3->SetDrawType(RepaUI::Image::DrawType::SLICED);
 
+  //auto img4 = RepaUI::CreateImage(canvas, { 300, 300, 300, 300 }, btnImg);
+  //img4->SetSlicePoints({ 3, 3, 12, 12 });
+  //img4->SetDrawType(RepaUI::Image::DrawType::SLICED);
+
+  auto canvas2 = RepaUI::CreateCanvas({ 100, 100, 500, 500 });
+  auto img5 = RepaUI::CreateImage(canvas2, { 0, 0, 100, 100 }, sliceImg);
+
   elements.push_back(canvas);
   elements.push_back(img1);
-  elements.push_back(img2);
+  //elements.push_back(img2);
   elements.push_back(img3);
+  //elements.push_back(img4);
+  elements.push_back(canvas2);
+  elements.push_back(img5);
 
   elementToControl = elements[controlIndex];
   elementToControl->ShowOutline(true);
