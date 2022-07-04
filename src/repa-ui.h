@@ -3,6 +3,7 @@
 
 #include "SDL2/SDL.h"
 
+#include <algorithm>
 #include <string>
 #include <sstream>
 #include <vector>
@@ -97,9 +98,8 @@ namespace RepaUI
       // =======================================================================
 
     private:
-      void Clip();
-      void DrawOnTarget(SDL_Texture* target,
-                        const std::function<void()>& fn);
+      void DrawToTexture();
+      void DrawOnScreen();
 
       const uint64_t& GetNewId()
       {
@@ -118,6 +118,11 @@ namespace RepaUI
         //_btnPressed  = LoadImage("btn-pressed.bmp");
         //_btnHover    = LoadImage("btn-hover.bmp");
         //_btnDisabled = _btnPressed; //LoadImage("btn-pressed.bmp");
+      }
+
+      SDL_Texture* GetUniqueBlankTexture()
+      {
+        return LoadImageFromBase64(_pixelImageBase64);
       }
 
       SDL_Texture* LoadImage(const std::string& fname)
@@ -281,7 +286,7 @@ namespace RepaUI
       SDL_Texture* _btnHover    = nullptr;
       SDL_Texture* _btnDisabled = nullptr;
 
-      SDL_Texture* _renderTexture    = nullptr;
+      SDL_Texture* _renderTexture = nullptr;
 
       SDL_Rect _renderDst;
 
@@ -2351,11 +2356,14 @@ namespace RepaUI
           return;
         }
 
-        Element::Draw();
-
         for (auto& kvp : _elements)
         {
           kvp.second->Draw();
+        }
+
+        if (_showOutline)
+        {
+          DrawOutline();
         }
       }
 
@@ -2493,8 +2501,9 @@ namespace RepaUI
         : Element(owner, transform)
       {
         _image = (image == nullptr)
-                ? Manager::Get()._blankImage
-                : image;
+              // Since SDL_SetTexture*Mod works on per texture basis
+                ? Manager::Get().GetUniqueBlankTexture()
+                : image; // TODO: create unique ptr per object
 
         _imageSrc.x = 0;
         _imageSrc.y = 0;
@@ -2723,7 +2732,8 @@ namespace RepaUI
 
         auto& c = GetCornersCoordsAbsolute();
 
-        SDL_RenderSetClipRect(_rendRef, &_renderTransform);
+        // FIXME:
+        //SDL_RenderSetClipRect(_rendRef, &_renderTransform);
 
         for (int x = c.x; x < c.w; x += _stepX)
         {
@@ -2738,7 +2748,7 @@ namespace RepaUI
           }
         }
 
-        SDL_RenderSetClipRect(_rendRef, nullptr);
+        //SDL_RenderSetClipRect(_rendRef, nullptr);
       }
 
       DrawType _drawType = DrawType::NORMAL;
@@ -2786,38 +2796,45 @@ namespace RepaUI
   // ===========================================================================
   void Manager::Draw()
   {
-    DrawOnTarget(_renderTexture,
-                 [this]()
-    {
-      for (auto& kvp : _canvases)
-      {
-        kvp.second->Draw();
-      }
-
-      _screenCanvas->Draw();
-    });
-
-    Clip();
+    DrawToTexture();
+    DrawOnScreen();
   }
 
-  void Manager::DrawOnTarget(SDL_Texture* target,
-                             const std::function<void()>& fn)
+  void Manager::DrawToTexture()
   {
-    PushClipRect();
     auto old = SDL_GetRenderTarget(_rendRef);
-    SDL_SetRenderTarget(_rendRef, target);
+    SDL_SetRenderTarget(_rendRef, _renderTexture);
     SDL_RenderClear(_rendRef);
 
-    fn();
+    PushClipRect();
+
+    for (auto& kvp : _canvases)
+    {
+      SDL_RenderSetClipRect(_rendRef, &kvp.second->_renderTransform);
+      kvp.second->Draw();
+    }
+
+    SDL_SetRenderTarget(_rendRef, _renderTexture);
+    SDL_RenderSetClipRect(_rendRef, &_screenCanvas->_renderTransform);
+    _screenCanvas->Draw();
 
     PopClipRect();
+
     SDL_SetRenderTarget(_rendRef, old);
   }
 
-  void Manager::Clip()
+  void Manager::DrawOnScreen()
   {
     auto old = SDL_GetRenderTarget(_rendRef);
     SDL_SetRenderTarget(_rendRef, nullptr);
+
+    auto& t = _screenCanvas->_transform;
+
+    SDL_RenderSetClipRect(_rendRef, &t);
+    SDL_RenderCopy(_rendRef,
+                   _renderTexture,
+                   &_renderDst,
+                   nullptr);
 
     for (auto it = _canvases.rbegin(); it != _canvases.rend(); it++)
     {

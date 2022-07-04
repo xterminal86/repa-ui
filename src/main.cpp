@@ -76,31 +76,58 @@ void CreateGUI()
   auto btnImg      = LoadImage("button.bmp");
 
   auto canvas = RepaUI::CreateCanvas({ 0, 0, 500, 500 });
+  auto canvasBg = RepaUI::CreateImage(canvas, { 0, 0, 500, 500 }, nullptr);
+  canvasBg->SetColor({ 32, 32, 32, 255 });
+
   auto img1 = RepaUI::CreateImage(canvas, { 0, 0, 100, 100 }, sliceImg);
+  img1->OnMouseOver = HoverTest;
+  img1->OnMouseOut  = OutTest;
   img1->SetDrawType(RepaUI::Image::DrawType::NORMAL);
 
-  //auto img2 = RepaUI::CreateImage(canvas, { 150, 0, 100, 100 }, checkersImg);
-  //img2->SetDrawType(RepaUI::Image::DrawType::TILED);
+  auto img2 = RepaUI::CreateImage(canvas, { 150, 0, 100, 100 }, checkersImg);
+  img2->OnMouseOver = HoverTest;
+  img2->OnMouseOut  = OutTest;
+  img2->SetDrawType(RepaUI::Image::DrawType::TILED);
 
   auto img3 = RepaUI::CreateImage(canvas, { 0, 300, 300, 300 }, sliceImg);
+  img3->OnMouseOver = HoverTest;
+  img3->OnMouseOut  = OutTest;
   //img3->SetSlicePoints({ 7, 7, 24, 24 });
   img3->SetSlicePoints({ 70, 70, 249, 249 });
   img3->SetDrawType(RepaUI::Image::DrawType::SLICED);
 
-  //auto img4 = RepaUI::CreateImage(canvas, { 300, 300, 300, 300 }, btnImg);
-  //img4->SetSlicePoints({ 3, 3, 12, 12 });
-  //img4->SetDrawType(RepaUI::Image::DrawType::SLICED);
+  auto canvas3 = RepaUI::CreateCanvas({ 400, 100, 500, 500 });
+  canvasBg = RepaUI::CreateImage(canvas3, { 0, 0, 500, 500 }, nullptr);
+  canvasBg->SetColor({ 32, 0, 0, 255 });
+
+  auto img4 = RepaUI::CreateImage(canvas3, { 50, 50, 100, 100 }, btnImg);
+  img4->OnMouseOver = HoverTest;
+  img4->OnMouseOut  = OutTest;
+  img4->SetSlicePoints({ 3, 3, 12, 12 });
+  img4->SetDrawType(RepaUI::Image::DrawType::SLICED);
 
   auto canvas2 = RepaUI::CreateCanvas({ 100, 100, 500, 500 });
+  canvasBg = RepaUI::CreateImage(canvas2, { 0, 0, 500, 500 }, nullptr);
+  canvasBg->SetColor({ 0, 32, 0, 255 });
+
   auto img5 = RepaUI::CreateImage(canvas2, { 0, 0, 100, 100 }, sliceImg);
+  img5->OnMouseOver = HoverTest;
+  img5->OnMouseOut  = OutTest;
+
+  auto img6 = RepaUI::CreateImage(nullptr, { 550, 400, 50, 50 }, nullptr);
+  img6->OnMouseOver = HoverTest;
+  img6->OnMouseOut  = OutTest;
+  img6->SetColor({ 64, 64, 64, 255 });
 
   elements.push_back(canvas);
-  elements.push_back(img1);
-  //elements.push_back(img2);
-  elements.push_back(img3);
-  //elements.push_back(img4);
   elements.push_back(canvas2);
+  elements.push_back(canvas3);
+  elements.push_back(img1);
+  elements.push_back(img2);
+  elements.push_back(img3);
+  elements.push_back(img4);
   elements.push_back(img5);
+  elements.push_back(img6);
 
   elementToControl = elements[controlIndex];
   elementToControl->ShowOutline(true);
