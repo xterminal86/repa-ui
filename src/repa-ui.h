@@ -266,10 +266,10 @@ namespace RepaUI
 
       const SDL_Rect& GetCornersCoordsAbsolute()
       {
-        _corners.x = Transform().x;
-        _corners.y = Transform().y;
-        _corners.w = Transform().x + Transform().w;
-        _corners.h = Transform().y + Transform().h;
+        _corners.x = _renderTransform.x;
+        _corners.y = _renderTransform.y;
+        _corners.w = _renderTransform.x + _renderTransform.w;
+        _corners.h = _renderTransform.y + _renderTransform.h;
 
         return _corners;
       }
@@ -828,7 +828,7 @@ namespace RepaUI
 
         for (auto& i : _slices)
         {
-          _swh.push_back({ i.w - i.x, i.h - i.y });
+          _swh.push_back({ i.w - i.x - 1, i.h - i.y - 1 });
         }
 
         CalculateFragments();
@@ -926,7 +926,7 @@ namespace RepaUI
 
         for (size_t i = 0; i < 9; i++)
         {
-          _renderDst =
+          _tempRect =
           {
             _slices[i].x,
             _slices[i].y,
@@ -936,13 +936,15 @@ namespace RepaUI
 
           SDL_RenderCopy(_rendRef,
                           _image,
-                          &_renderDst,
+                          &_tempRect,
                           &_fragments[i]);
         }
       }
 
       void DrawTiled()
       {
+        CalculateSteps();
+
         auto& c = GetCornersCoordsAbsolute();
 
         SDL_RenderSetClipRect(_rendRef, &_renderTransform);
@@ -951,18 +953,12 @@ namespace RepaUI
         {
           for (int y = c.y; y < c.h; y += _stepY)
           {
-            _renderDst =
-            {
-              x + Manager::Get()._renderDst.x,
-              y + Manager::Get()._renderDst.y,
-              _stepX,
-              _stepY
-            };
+            _tempRect = { x, y, _stepX, _stepY };
 
             SDL_RenderCopy(_rendRef,
                             _image,
                             nullptr,
-                            &_renderDst);
+                            &_tempRect);
           }
         }
 
@@ -974,7 +970,7 @@ namespace RepaUI
       SDL_Texture* _image = nullptr;
 
       SDL_Rect _imageSrc;
-      SDL_Rect _renderDst;
+      SDL_Rect _tempRect;
       SDL_Rect _slices[9];
       SDL_Rect _fragments[9];
       SDL_Rect _slicePoints;
