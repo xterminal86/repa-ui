@@ -66,6 +66,13 @@ int controlIndex = 0;
 
 RepaUI::Element* elementToControl = nullptr;
 
+const std::string TestString =
+1+ R"(
+This is line one
+This is line two
+This is line three
+)";
+
 void CreateGUI()
 {
   auto gridImg     = LoadImage("grid.bmp");
@@ -120,7 +127,7 @@ void CreateGUI()
   img6->OnMouseOut  = OutTest;
   img6->SetColor({ 64, 64, 64, 255 });
 
-  auto txt = RepaUI::CreateText(nullptr, { 400, 400, 200, 200 }, "Hello World!");
+  auto txt = RepaUI::CreateText(canvas2, { 100, 100, 200, 50 }, TestString);
 
   elements.push_back(canvas);
   elements.push_back(canvas2);
@@ -131,6 +138,7 @@ void CreateGUI()
   elements.push_back(img4);
   elements.push_back(img5);
   elements.push_back(img6);
+  elements.push_back(txt);
 
   elementToControl = elements[controlIndex];
   elementToControl->ShowOutline(true);
@@ -176,7 +184,7 @@ int main(int argc, char* argv[])
 
   CreateGUI();
 
-  SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 255);
+  SDL_SetRenderDrawColor(_renderer, 64, 0, 64, 255);
 
   SDL_Event evt;
 
