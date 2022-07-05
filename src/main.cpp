@@ -76,6 +76,7 @@ void CreateGUI()
   auto btnImg      = LoadImage("button.bmp");
 
   auto canvas = RepaUI::CreateCanvas({ 0, 0, 500, 500 });
+
   auto canvasBg = RepaUI::CreateImage(canvas, { 0, 0, 500, 500 }, nullptr);
   canvasBg->SetColor({ 32, 32, 32, 255 });
 
@@ -118,6 +119,8 @@ void CreateGUI()
   img6->OnMouseOver = HoverTest;
   img6->OnMouseOut  = OutTest;
   img6->SetColor({ 64, 64, 64, 255 });
+
+  auto txt = RepaUI::CreateText(nullptr, { 400, 400, 200, 200 }, "Hello World!");
 
   elements.push_back(canvas);
   elements.push_back(canvas2);
