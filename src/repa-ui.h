@@ -101,6 +101,8 @@ namespace RepaUI
       void DrawToTexture();
       void DrawOnScreen();
 
+      void ProcessCanvases(const SDL_Event& evt);
+
       const uint64_t& GetNewId()
       {
         _globalId++;
@@ -2828,14 +2830,6 @@ namespace RepaUI
     auto old = SDL_GetRenderTarget(_rendRef);
     SDL_SetRenderTarget(_rendRef, nullptr);
 
-    auto& t = _screenCanvas->_transform;
-
-    SDL_RenderSetClipRect(_rendRef, &t);
-    SDL_RenderCopy(_rendRef,
-                   _renderTexture,
-                   &_renderDst,
-                   nullptr);
-
     for (auto it = _canvases.rbegin(); it != _canvases.rend(); it++)
     {
       auto& t = it->second->_transform;
@@ -2846,6 +2840,14 @@ namespace RepaUI
                      &_renderDst,
                      nullptr);
     }
+
+    auto& t = _screenCanvas->_transform;
+
+    SDL_RenderSetClipRect(_rendRef, &t);
+    SDL_RenderCopy(_rendRef,
+                   _renderTexture,
+                   &_renderDst,
+                   nullptr);
 
     SDL_RenderSetClipRect(_rendRef, nullptr);
     SDL_SetRenderTarget(_rendRef, old);
@@ -2859,59 +2861,65 @@ namespace RepaUI
       case SDL_MOUSEBUTTONUP:
       case SDL_MOUSEBUTTONDOWN:
       {
-        Canvas* newCanvas = nullptr;
+        _screenCanvas->HandleEvents(evt);
 
-        for (auto it = _canvases.rbegin(); it != _canvases.rend(); it++)
+        if (_screenCanvas->_topElement == nullptr)
         {
-          if (it->second->IsEnabledAndVisible()
-           && it->second->IsMouseInside(evt))
-          {
-            newCanvas = it->second.get();
-            break;
-          }
-        }
-
-        //
-        // If we moused out from canvas, we still need
-        // to let it handle event for the last time
-        // for OnMouseOut event
-        // (also any top element of it that is clipped by the canvas).
-        //
-        if (_topCanvas != newCanvas)
-        {
-          if (_topCanvas != nullptr
-           && _topCanvas->IsEnabledAndVisible())
-          {
-            if (_topCanvas->_topElement != nullptr)
-            {
-              _topCanvas->_topElement->RaiseEvent(EventType::MOUSE_OUT);
-              _topCanvas->_topElement->_mouseEnter = false;
-
-              //
-              // To prevent OnMouseOut() duplicate firing
-              // if we mouse outed from clipped element
-              // and overed again on an empty spot on the canvas.
-              //
-              _topCanvas->_topElement = nullptr;
-            }
-
-            _topCanvas->RaiseEvent(EventType::MOUSE_OUT);
-            _topCanvas->_mouseEnter = false;
-          }
-
-          _topCanvas = newCanvas;
+          ProcessCanvases(evt);
         }
       }
       break;
+    }
+  }
+
+  void Manager::ProcessCanvases(const SDL_Event& evt)
+  {
+    Canvas* newCanvas = nullptr;
+
+    for (auto it = _canvases.rbegin(); it != _canvases.rend(); it++)
+    {
+      if (it->second->IsEnabledAndVisible()
+       && it->second->IsMouseInside(evt))
+      {
+        newCanvas = it->second.get();
+        break;
+      }
+    }
+
+    //
+    // If we moused out from canvas, we still need
+    // to let it handle event for the last time
+    // for OnMouseOut event
+    // (also any top element of it that is clipped by the canvas).
+    //
+    if (_topCanvas != newCanvas)
+    {
+      if (_topCanvas != nullptr
+       && _topCanvas->IsEnabledAndVisible())
+      {
+        if (_topCanvas->_topElement != nullptr)
+        {
+          _topCanvas->_topElement->RaiseEvent(EventType::MOUSE_OUT);
+          _topCanvas->_topElement->_mouseEnter = false;
+
+          //
+          // To prevent OnMouseOut() duplicate firing
+          // if we mouse outed from clipped element
+          // and overed again on an empty spot on the canvas.
+          //
+          _topCanvas->_topElement = nullptr;
+        }
+
+        _topCanvas->RaiseEvent(EventType::MOUSE_OUT);
+        _topCanvas->_mouseEnter = false;
+      }
+
+      _topCanvas = newCanvas;
     }
 
     if (_topCanvas != nullptr)
     {
       _topCanvas->HandleEvents(evt);
-    }
-    else
-    {
-      _screenCanvas->HandleEvents(evt);
     }
   }
 
