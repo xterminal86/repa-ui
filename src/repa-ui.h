@@ -47,7 +47,7 @@ namespace RepaUI
   class Text;
   // ===========================================================================
 
-  class Manager
+  class Manager final
   {
     public:
       static Manager& Get()
@@ -98,7 +98,7 @@ namespace RepaUI
                           const SDL_Rect& transform,
                           SDL_Texture* image);
       Text* CreateText(Canvas* canvas,
-                       const SDL_Rect& transform,
+                       const SDL_Point& pos,
                        const std::string& text);
       // =======================================================================
 
@@ -337,6 +337,8 @@ namespace RepaUI
 
       SDL_Texture* _renderTexture     = nullptr;
       SDL_Texture* _renderTempTexture = nullptr;
+
+      SDL_Color _oldRenderColor;
 
       SDL_Rect _renderDst;
 
@@ -788,7 +790,8 @@ namespace RepaUI
       {
         if (e == nullptr)
         {
-          SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Trying to add null to canvas!");
+          SDL_LogError(SDL_LOG_CATEGORY_ERROR,
+                       "Trying to add null to canvas!");
           return nullptr;
         }
 
@@ -952,8 +955,8 @@ namespace RepaUI
       {
         _tileRate = tileRate;
 
-        _tileRate.first  = Clamp(_tileRate.first,  (size_t)1, (size_t)_localTransform.w);
-        _tileRate.second = Clamp(_tileRate.second, (size_t)1, (size_t)_localTransform.h);
+        _tileRate.first  = Clamp<size_t>(_tileRate.first,  1, _localTransform.w);
+        _tileRate.second = Clamp<size_t>(_tileRate.second, 1, _localTransform.h);
 
         CalculateSteps();
       }
@@ -1208,20 +1211,22 @@ namespace RepaUI
       enum class Alignment
       {
         LEFT = 0,
-        MIDDLE,
+        CENTER,
         RIGHT
       };
 
       Text(Canvas* owner,
-           const std::string& text,
-           const SDL_Rect& transform)
-        : Element(owner, transform)
+           const SDL_Point& pos,
+           const std::string& text)
+        : Element(owner, { pos.x, pos.y, 0, 0 })
       {
         _text = text;
 
         _color = { 255, 255, 255, 255 };
+        _scale = 1.0f;
 
-        ShrinkToFit();
+        StoreLines();
+        CalculateRenderTransform();
       }
 
       void SetAlignment(Alignment al)
@@ -1232,6 +1237,27 @@ namespace RepaUI
       void SetColor(const SDL_Color& c)
       {
         _color = c;
+      }
+
+      void SetScale(uint8_t scale)
+      {
+        _scale = scale;
+        _scale = Clamp<uint8_t>(_scale, 1, 255);
+
+        CalculateRenderTransform();
+      }
+
+      void SetText(const std::string& text)
+      {
+        _text = text;
+
+        StoreLines();
+        CalculateRenderTransform();
+      }
+
+      const std::string& GetText()
+      {
+        return _text;
       }
 
     protected:
@@ -1251,9 +1277,17 @@ namespace RepaUI
         SDL_SetRenderDrawColor(_rendRef, 0, 0, 0, 0);
         SDL_RenderClear(_rendRef);
 
-        SDL_Rect r = { 0, 0, _transform.w, _transform.h };
+        _srcTexture = { 0, 0, _transform.w, _transform.h };
 
-        SDL_RenderSetClipRect(_rendRef, &r);
+        _dstFinal =
+        {
+          _renderTransform.x,
+          _renderTransform.y,
+          _transform.w * _scale,
+          _transform.h * _scale
+        };
+
+        SDL_RenderSetClipRect(_rendRef, &_srcTexture);
 
         DrawText();
 
@@ -1263,11 +1297,49 @@ namespace RepaUI
 
         SDL_RenderCopy(_rendRef,
                        Manager::Get()._renderTempTexture,
-                       &r,
-                       &_renderTransform);
+                       &_srcTexture,
+                       &_dstFinal);
       }
 
     private:
+      void StoreLines()
+      {
+        _textLines.clear();
+
+        _textMaxStringLen = 0;
+
+        std::stringstream ss;
+        for (auto& c : _text)
+        {
+          if (c == '\n')
+          {
+            _textLines.push_back(ss.str());
+
+            size_t l = ss.str().length();
+            if (l > _textMaxStringLen)
+            {
+              _textMaxStringLen = l;
+            }
+
+            ss.str(std::string());
+          }
+          else
+          {
+            ss << c;
+          }
+        }
+      }
+
+      void CalculateRenderTransform()
+      {
+        auto& t = Transform();
+
+        int w = _textMaxStringLen * Manager::Get().FontW * _scale;
+        int h = _textLines.size() * Manager::Get().FontH * _scale;
+
+        SetTransform({ t.x, t.y, w, h });
+      }
+
       void DrawText()
       {
         int offsetX = 0;
@@ -1276,66 +1348,84 @@ namespace RepaUI
         auto& fw = Manager::Get().FontW;
         auto& fh = Manager::Get().FontH;
 
-        for (auto& c : _text)
+        for (auto& line : _textLines)
         {
-          if (c == '\n')
+          int lineLen = line.length();
+          int diff = (_textMaxStringLen - lineLen) * fw;
+          int middlePoint = (int)((float)diff * 0.5f);
+
+          for (auto& c : line)
           {
-            offsetX = 0;
-            offsetY += Manager::Get().FontH;
-            continue;
-          }
+            auto gi = Manager::Get().GetCharData(c);
 
-          auto gi = Manager::Get().GetCharData(c);
+            _glyphSrc = { gi->X, gi->Y, fw, fh };
 
-          _glyphSrc = { gi->X, gi->Y, fw, fh };
-
-          _glyphDst =
-          {
-            offsetX,
-            offsetY,
-            fw,
-            fh
-          };
-
-          SDL_RenderCopy(_rendRef,
-                         Manager::Get()._font,
-                        &_glyphSrc,
-                        &_glyphDst);
-
-          offsetX += Manager::Get().FontW;
-        }
-      }
-
-      void ShrinkToFit()
-      {
-        int linesCount = 1;
-        int maxWidth = 0;
-        int lineWidth = 0;
-
-        for (auto& c : _text)
-        {
-          if (c == '\n')
-          {
-            linesCount++;
-
-            if (lineWidth > maxWidth)
+            switch (_alignment)
             {
-              maxWidth = lineWidth;
+              case Alignment::LEFT:
+              {
+                _glyphDst =
+                {
+                  offsetX,
+                  offsetY,
+                  fw,
+                  fh
+                };
+              }
+              break;
+
+              case Alignment::RIGHT:
+              {
+                _glyphDst =
+                {
+                  offsetX + diff,
+                  offsetY,
+                  fw,
+                  fh
+                };
+              }
+              break;
+
+              case Alignment::CENTER:
+              {
+                _glyphDst =
+                {
+                  offsetX + middlePoint,
+                  offsetY,
+                  fw,
+                  fh
+                };
+              }
+              break;
             }
 
-            lineWidth = 0;
+            SDL_RenderCopy(_rendRef,
+                           Manager::Get()._font,
+                          &_glyphSrc,
+                          &_glyphDst);
+
+            offsetX += fw;
           }
 
-          lineWidth++;
+          offsetX = 0;
+          offsetY += fh;
         }
       }
 
       std::string _text;
 
+      std::vector<std::string> _textLines;
+
       SDL_Color _color;
 
       SDL_Rect _glyphSrc;
       SDL_Rect _glyphDst;
+      SDL_Rect _srcTexture;
+      SDL_Rect _dstFinal;
+
+      uint8_t _scale = 1;
+
+      size_t _textMaxStringLen = 0;
 
       Alignment _alignment = Alignment::LEFT;
   };
@@ -1362,11 +1452,11 @@ namespace RepaUI
   }
 
   Text* Manager::CreateText(Canvas* canvas,
-                            const SDL_Rect& transform,
+                            const SDL_Point& pos,
                             const std::string& text)
   {
     Canvas* c = (canvas == nullptr) ? _screenCanvas.get() : canvas;
-    Text* txt = new Text(c, text, transform);
+    Text* txt = new Text(c, pos, text);
     return static_cast<Text*>(c->Add(txt));
   }
 
@@ -1375,14 +1465,28 @@ namespace RepaUI
   // ===========================================================================
   void Manager::Draw()
   {
+    SDL_GetRenderDrawColor(_rendRef,
+                          &_oldRenderColor.r,
+                          &_oldRenderColor.g,
+                          &_oldRenderColor.b,
+                          &_oldRenderColor.a);
     DrawToTexture();
     DrawOnScreen();
+
+    SDL_SetRenderDrawColor(_rendRef,
+                           _oldRenderColor.r,
+                           _oldRenderColor.g,
+                           _oldRenderColor.b,
+                           _oldRenderColor.a);
   }
 
   void Manager::DrawToTexture()
   {
     auto old = SDL_GetRenderTarget(_rendRef);
     SDL_SetRenderTarget(_rendRef, _renderTexture);
+    SDL_SetTextureBlendMode(_renderTempTexture,
+                            SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(_rendRef, 0, 0, 0, 0);
     SDL_RenderClear(_rendRef);
 
     for (auto& kvp : _canvases)
@@ -1527,10 +1631,10 @@ namespace RepaUI
   }
 
   Text* CreateText(Canvas* canvas,
-                   const SDL_Rect& transform,
+                   const SDL_Point& pos,
                    const std::string& text)
   {
-    return Manager::Get().CreateText(canvas, transform, text);
+    return Manager::Get().CreateText(canvas, pos, text);
   }
 
   // ===========================================================================

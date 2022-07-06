@@ -127,7 +127,17 @@ void CreateGUI()
   img6->OnMouseOut  = OutTest;
   img6->SetColor({ 64, 64, 64, 255 });
 
-  auto txt = RepaUI::CreateText(canvas2, { 100, 100, 200, 50 }, TestString);
+  auto txt = RepaUI::CreateText(canvas2, { 100, 100 }, TestString);
+  txt->SetAlignment(RepaUI::Text::Alignment::LEFT);
+  txt->SetScale(2);
+
+  auto txt2 = RepaUI::CreateText(canvas2, { 100, 200 }, TestString);
+  txt2->SetAlignment(RepaUI::Text::Alignment::CENTER);
+  txt2->SetScale(2);
+
+  auto txt3 = RepaUI::CreateText(canvas2, { 100, 300 }, TestString);
+  txt3->SetAlignment(RepaUI::Text::Alignment::RIGHT);
+  txt3->SetScale(2);
 
   elements.push_back(canvas);
   elements.push_back(canvas2);
@@ -139,6 +149,8 @@ void CreateGUI()
   elements.push_back(img5);
   elements.push_back(img6);
   elements.push_back(txt);
+  elements.push_back(txt2);
+  elements.push_back(txt3);
 
   elementToControl = elements[controlIndex];
   elementToControl->ShowOutline(true);
