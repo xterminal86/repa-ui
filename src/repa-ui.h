@@ -125,12 +125,10 @@ namespace RepaUI
         _blankImage = LoadImageFromBase64(_pixelImageBase64);
         _font       = LoadImageFromBase64(_fontBase64, 255, 0, 255);
 
-        // FIXME: replace with embedded
-
-        //_btnNormal   = LoadImage("btn-normal.bmp");
-        //_btnPressed  = LoadImage("btn-pressed.bmp");
-        //_btnHover    = LoadImage("btn-hover.bmp");
-        //_btnDisabled = _btnPressed; //LoadImage("btn-pressed.bmp");
+        _btnNormal   = LoadImageFromBase64(_btnNormalBase64);
+        _btnPressed  = LoadImageFromBase64(_btnPressedBase64);
+        _btnHover    = LoadImageFromBase64(_btnHoverBase64);
+        _btnDisabled = _btnPressed;
       }
 
       void CutFontGlyphs()
@@ -368,6 +366,10 @@ namespace RepaUI
       const static std::string _base64Chars;
       const static std::string _fontBase64;
       const static std::string _pixelImageBase64;
+
+      const static std::string _btnNormalBase64;
+      const static std::string _btnPressedBase64;
+      const static std::string _btnHoverBase64;
 
       friend class Element;
       friend class Canvas;
@@ -1430,6 +1432,28 @@ namespace RepaUI
       Alignment _alignment = Alignment::LEFT;
   };
 
+  class Button : public Element
+  {
+    public:
+      Button(Canvas* owner,
+             const SDL_Rect& transform,
+             const std::string& text)
+        : Element(owner, transform)
+      {
+        _text = Manager::Get().CreateText(owner, { transform.x, transform.y }, text);
+        _text->SetAlignment(Text::Alignment::CENTER);
+        _text->SetColor({ 255, 255, 255, 255 });
+      }
+
+    protected:
+      void DrawImpl() override
+      {
+      }
+
+    private:
+      Text* _text = nullptr;
+  };
+
   // ===========================================================================
   //                           GUI ELEMENTS CREATION
   // ===========================================================================
@@ -1648,6 +1672,39 @@ const std::string Manager::_pixelImageBase64 =
 "Qk2OAAAAAAAAAIoAAAB8AAAAAQAAAAEAAAABABgAAAAAAAQAAAAjLgAAIy4AAAAAAAA"
 "AAAAAAAD/AAD/AAD/AAAAAAAAAEJHUnMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAA////AA==";
+
+const std::string Manager::_btnNormalBase64 =
+"Qk0WAgAAAAAAAIoAAAB8AAAACwAAAAsAAAABABgAAAAAAIwBAAATCwAAEwsAAAAAAAAAAAAAAAD/AAD/"
+"AAD/AAAAAAAAAEJHUnMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+"AAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoKCg"
+"oKCgoKCgoKCgoKCgoKCgoKCgoKCgtLS0AAAAAAAAAAAA8PDwoKCgoKCgoKCgoKCgoKCgoKCgtLS0tLS0"
+"AAAAAAAAAAAA8PDw8PDwoKCgoKCgoKCgoKCgtLS0tLS0tLS0AAAAAAAAAAAA8PDw8PDw8PDwyMjIyMjI"
+"yMjItLS0tLS0tLS0AAAAAAAAAAAA8PDw8PDw8PDwyMjIyMjIyMjItLS0tLS0tLS0AAAAAAAAAAAA8PDw"
+"8PDw8PDwyMjIyMjIyMjItLS0tLS0tLS0AAAAAAAAAAAA8PDw8PDw8PDw8PDw8PDw8PDw8PDwtLS0tLS0"
+"AAAAAAAAAAAA8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDwtLS0AAAAAAAAAAAA8PDw8PDw8PDw8PDw8PDw"
+"8PDw8PDw8PDw8PDwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
+const std::string Manager::_btnPressedBase64 =
+"Qk0WAgAAAAAAAIoAAAB8AAAACwAAAAsAAAABABgAAAAAAIwBAAATCwAAEwsAAAAAAAAAAAAAAAD/AAD/"
+"AAD/AAAAAAAAAEJHUnMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+"AAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoKCg"
+"jIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMAAAAAAAAAAAAoKCgoKCgjIyMjIyMjIyMjIyMjIyMjIyMjIyM"
+"AAAAAAAAAAAAoKCgoKCgoKCgjIyMjIyMjIyMjIyMjIyMjIyMAAAAAAAAAAAAoKCgoKCgoKCgtLS0tLS0"
+"tLS0jIyMjIyMjIyMAAAAAAAAAAAAoKCgoKCgoKCgtLS0tLS0tLS0jIyMjIyMjIyMAAAAAAAAAAAAoKCg"
+"oKCgoKCgtLS0tLS0tLS0jIyMjIyMjIyMAAAAAAAAAAAAoKCgoKCgoKCgoKCgoKCgoKCgoKCgjIyMjIyM"
+"AAAAAAAAAAAAoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgjIyMAAAAAAAAAAAAoKCgoKCgoKCgoKCgoKCg"
+"oKCgoKCgoKCgoKCgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
+const std::string Manager::_btnHoverBase64 =
+"Qk0WAgAAAAAAAIoAAAB8AAAACwAAAAsAAAABABgAAAAAAIwBAAATCwAAEwsAAAAAAAAAAAAAAAD/AAD/"
+"AAD/AAAAAAAAAEJHUnMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+"AAACAAAAAAAAAAAAAAAAAAAAAP//AP//AP//AP//AP//AP//AP//AP//AP//AP//AP//AAAAAP//oKCg"
+"oKCgoKCgoKCgoKCgoKCgoKCgoKCgtLS0AP//AAAAAP//8PDwoKCgoKCgoKCgoKCgoKCgoKCgtLS0tLS0"
+"AP//AAAAAP//8PDw8PDwoKCgoKCgoKCgoKCgtLS0tLS0tLS0AP//AAAAAP//8PDw8PDw8PDwyMjIyMjI"
+"yMjItLS0tLS0tLS0AP//AAAAAP//8PDw8PDw8PDwyMjIyMjIyMjItLS0tLS0tLS0AP//AAAAAP//8PDw"
+"8PDw8PDwyMjIyMjIyMjItLS0tLS0tLS0AP//AAAAAP//8PDw8PDw8PDw8PDw8PDw8PDw8PDwtLS0tLS0"
+"AP//AAAAAP//8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDwtLS0AP//AAAAAP//8PDw8PDw8PDw8PDw8PDw"
+"8PDw8PDw8PDw8PDwAP//AAAAAP//AP//AP//AP//AP//AP//AP//AP//AP//AP//AP//AAAA";
 
 const std::string Manager::_fontBase64 =
 "Qk2KkAAAAAAAAIoAAAB8AAAAgAAAAGAAAAABABgAAAAAAACQAAAjLgAAIy4AAAAAAAAAAAAAAAD/AAD/"
