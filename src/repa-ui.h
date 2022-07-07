@@ -1373,7 +1373,9 @@ namespace RepaUI
         for (auto& line : _textLines)
         {
           int lineLen = line.length();
-          int diff = (_textMaxStringLen - lineLen) * fw;
+          int diff = ((_textMaxStringLen - lineLen) == 0)
+                     ? fw
+                     : (_textMaxStringLen - lineLen) * fw;
           int middlePoint = (int)((float)diff * 0.5f);
 
           for (auto& c : line)
@@ -1477,6 +1479,22 @@ namespace RepaUI
         Image* imgPressed = Manager::Get().CreateImage(owner, transform, Manager::Get()._btnPressed);
         Image* imgHovered = Manager::Get().CreateImage(owner, transform, Manager::Get()._btnHover);
 
+        CreateDisabledText(_disabledText.first,
+                           { transform.x + 2, transform.y + 2, transform.w, transform.h },
+                           { 255, 255, 255, 255 },
+                           text);
+
+        CreateDisabledText(_disabledText.second,
+                           transform,
+                           { 120, 120, 120, 255 },
+                           text);
+
+        _text = Manager::Get().CreateText(owner, { transform.x, transform.y }, text);
+        _text->SetTransform(transform);
+        _text->SetAlignment(Text::Alignment::CENTER);
+        _text->SetColor({ 0, 0, 0, 255 });
+        _text->SetScale(2);
+
         _collisionArea = Manager::Get().CreateImage(owner, transform, nullptr);
         _collisionArea->SetBlending(true);
         _collisionArea->SetColor({ 0, 0, 0, 0 });
@@ -1498,25 +1516,29 @@ namespace RepaUI
 
         SetState(ButtonState::NORMAL);
 
-        _collisionArea->_onMouseOverIntl = std::bind(&Button::BtnOverHandler,
-                                                     this,
-                                                     _1);
+        _collisionArea->_onMouseOverIntl =
+        [this](Element* sender)
+        {
+          SetState(ButtonState::HOVERED);
+        };
 
-        _collisionArea->_onMouseOutIntl  = std::bind(&Button::BtnOutHandler,
-                                                     this,
-                                                     _1);
+        _collisionArea->_onMouseOutIntl =
+        [this](Element* sender)
+        {
+          SetState(ButtonState::NORMAL);
+        };
 
-        _collisionArea->_onMouseDownIntl = std::bind(&Button::BtnDownHandler,
-                                                     this,
-                                                     _1);
+        _collisionArea->_onMouseDownIntl =
+        [this](Element* sender)
+        {
+          SetState(ButtonState::PRESSED);
+        };
 
-        _collisionArea->_onMouseUpIntl = std::bind(&Button::BtnUpHandler,
-                                                   this,
-                                                   _1);
-
-        //_text = Manager::Get().CreateText(owner, { transform.x, transform.y }, text);
-        //_text->SetAlignment(Text::Alignment::RIGHT);
-        //_text->SetColor({ 255, 255, 255, 255 });
+        _collisionArea->_onMouseUpIntl =
+        [this](Element* sender)
+        {
+          SetState(ButtonState::NORMAL);
+        };
       }
 
       void SetState(ButtonState newState)
@@ -1546,31 +1568,28 @@ namespace RepaUI
         //_text->SetTransform(transform);
       }
 
+      std::function<void(Button*)> OnClicked;
+      std::function<void(Button*)> OnHold;
+
     protected:
       void DrawImpl() override {}
 
     private:
-      void BtnOverHandler(Element* sender)
+      template <typename T>
+      void CreateDisabledText(T* which,
+                              const SDL_Rect& transform,
+                              const SDL_Color& color,
+                              const std::string& text)
       {
-        SetState(ButtonState::HOVERED);
-      }
-
-      void BtnOutHandler(Element* sender)
-      {
-        SetState(ButtonState::NORMAL);
-      }
-
-      void BtnDownHandler(Element* sender)
-      {
-        SetState(ButtonState::PRESSED);
-      }
-
-      void BtnUpHandler(Element* sender)
-      {
-        SetState(ButtonState::NORMAL);
+        which = Manager::Get().CreateText(_owner, { transform.x, transform.y }, text);
+        which->SetTransform(transform);
+        which->SetAlignment(Text::Alignment::CENTER);
+        which->SetColor(color);
       }
 
       Text* _text = nullptr;
+
+      std::pair<Text*, Text*> _disabledText;
 
       std::map<ButtonState, Image*> _imagesByState;
 
