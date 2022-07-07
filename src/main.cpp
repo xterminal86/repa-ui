@@ -66,21 +66,24 @@ int controlIndex = 0;
 
 RepaUI::Element* elementToControl = nullptr;
 
+/*
 const std::string TestString =
 1+ R"(
 This is line one
 This is line two
 This is line three
 )";
+*/
+
+const std::string TestString ="This is one line";
 
 void CreateGUI()
 {
-  auto gridImg     = LoadImage("grid.bmp");
   auto sliceImg    = LoadImage("slice-test-big.bmp");
   //auto sliceImg    = LoadImage("slice-test.bmp");
-  auto wndImg      = LoadImage("window.bmp");
+  auto wndImg      = LoadImage("r-window.bmp");
   auto checkersImg = LoadImage("checkers.bmp");
-  auto btnImg      = LoadImage("button.bmp");
+  auto btnImg      = LoadImage("r-button.bmp");
 
   auto canvas = RepaUI::CreateCanvas({ 0, 0, 500, 500 });
 
@@ -105,8 +108,10 @@ void CreateGUI()
   img3->SetDrawType(RepaUI::Image::DrawType::SLICED);
 
   auto canvas3 = RepaUI::CreateCanvas({ 400, 100, 500, 500 });
-  canvasBg = RepaUI::CreateImage(canvas3, { 0, 0, 500, 500 }, nullptr);
-  canvasBg->SetColor({ 32, 0, 0, 255 });
+  canvasBg = RepaUI::CreateImage(canvas3, { 0, 0, 500, 500 }, wndImg);
+  canvasBg->SetSlicePoints({ 3, 3, 12, 12 });
+  canvasBg->SetDrawType(RepaUI::Image::DrawType::SLICED);
+  //canvasBg->SetColor({ 32, 0, 0, 255 });
 
   auto img4 = RepaUI::CreateImage(canvas3, { 50, 50, 100, 100 }, btnImg);
   img4->OnMouseOver = HoverTest;
@@ -139,6 +144,8 @@ void CreateGUI()
   txt3->SetAlignment(RepaUI::Text::Alignment::RIGHT);
   txt3->SetScale(2);
 
+  auto btn = RepaUI::CreateButton(canvas2, { 50, 200, 200, 50 }, "Click Me!");
+
   elements.push_back(canvas);
   elements.push_back(canvas2);
   elements.push_back(canvas3);
@@ -151,6 +158,7 @@ void CreateGUI()
   elements.push_back(txt);
   elements.push_back(txt2);
   elements.push_back(txt3);
+  elements.push_back(btn);
 
   elementToControl = elements[controlIndex];
   elementToControl->ShowOutline(true);

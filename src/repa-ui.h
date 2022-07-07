@@ -23,9 +23,9 @@ namespace RepaUI
     MOUSE_UP
   };
 
-  // ===========================================================================
-  //                              UTILS
-  // ===========================================================================
+// =============================================================================
+//                              UTILS
+// =============================================================================
   template <typename T>
   T Clamp(T value, T min, T max)
   {
@@ -40,13 +40,17 @@ namespace RepaUI
          && rect.h != 0);
   }
 
-  // ===========================================================================
+// =============================================================================
+//                      FORWARD DECLARATIONS
+// =============================================================================
   class Element;
   class Canvas;
   class Image;
   class Text;
-  // ===========================================================================
-
+  class Button;
+// =============================================================================
+//                               MANAGER
+// =============================================================================
   class Manager final
   {
     public:
@@ -94,12 +98,18 @@ namespace RepaUI
 
       // =======================================================================
       Canvas* CreateCanvas(const SDL_Rect& transform);
+
       Image* CreateImage(Canvas* canvas,
                           const SDL_Rect& transform,
                           SDL_Texture* image);
+
       Text* CreateText(Canvas* canvas,
                        const SDL_Point& pos,
                        const std::string& text);
+
+      Button* CreateButton(Canvas* canvas,
+                           const SDL_Rect& transform,
+                           const std::string& text);
       // =======================================================================
 
     private:
@@ -375,11 +385,12 @@ namespace RepaUI
       friend class Canvas;
       friend class Image;
       friend class Text;
+      friend class Button;
   };
 
-  // ===========================================================================
-  //                              BASE WIDGET CLASS
-  // ===========================================================================
+// =============================================================================
+//                              BASE WIDGET CLASS
+// =============================================================================
   class Element
   {
     public:
@@ -582,11 +593,13 @@ namespace RepaUI
         }
 
         SDL_RenderDrawRect(_rendRef, &_debugOutline);
+
         SDL_RenderDrawLine(_rendRef,
                            _debugOutline.x,
                            _debugOutline.y,
                            _debugOutline.x + _transform.w - 1,
                            _debugOutline.y + _transform.h - 1);
+
         SDL_RenderDrawLine(_rendRef,
                            _debugOutline.x,
                            _debugOutline.y + _transform.h - 1,
@@ -681,11 +694,12 @@ namespace RepaUI
 
       friend class Canvas;
       friend class Manager;
+      friend class Button;
   };
 
-  // ===========================================================================
-  //                              CANVAS
-  // ===========================================================================
+// =============================================================================
+//                              CANVAS
+// =============================================================================
   class Canvas : public Element
   {
     public:
@@ -820,9 +834,9 @@ namespace RepaUI
       friend class Manager;
   };
 
-  // ===========================================================================
-  //                             DEFINITIONS
-  // ===========================================================================
+// =============================================================================
+//                             DEFINITIONS
+// =============================================================================
   Element::Element(Canvas* parent,
                    const SDL_Rect& transform)
   {
@@ -895,9 +909,9 @@ namespace RepaUI
     _screenCanvas->ResetHandlersIntl();
   }
 
-  // ===========================================================================
-  //                              IMAGE
-  // ===========================================================================
+// =============================================================================
+//                              IMAGE
+// =============================================================================
   class Image : public Element
   {
     public:
@@ -1204,9 +1218,9 @@ namespace RepaUI
       int _stepY = 1;
   };
 
-  // ===========================================================================
-  //                               TEXT
-  // ===========================================================================
+// =============================================================================
+//                               TEXT
+// =============================================================================
   class Text : public Element
   {
     public:
@@ -1330,6 +1344,12 @@ namespace RepaUI
             ss << c;
           }
         }
+
+        if (_textLines.empty() && ss.str().length() > 0)
+        {
+          _textMaxStringLen = ss.str().length();
+          _textLines.push_back(ss.str());
+        }
       }
 
       void CalculateRenderTransform()
@@ -1418,7 +1438,7 @@ namespace RepaUI
 
       std::vector<std::string> _textLines;
 
-      SDL_Color _color;
+      SDL_Color _color = { 255, 255, 255, 255 };
 
       SDL_Rect _glyphSrc;
       SDL_Rect _glyphDst;
@@ -1432,31 +1452,136 @@ namespace RepaUI
       Alignment _alignment = Alignment::LEFT;
   };
 
+// =============================================================================
+//                               BUTTON
+// =============================================================================
   class Button : public Element
   {
     public:
+      enum class ButtonState
+      {
+        NORMAL = 0,
+        HOVERED,
+        PRESSED,
+        DISABLED
+      };
+
       Button(Canvas* owner,
              const SDL_Rect& transform,
              const std::string& text)
         : Element(owner, transform)
       {
-        _text = Manager::Get().CreateText(owner, { transform.x, transform.y }, text);
-        _text->SetAlignment(Text::Alignment::CENTER);
-        _text->SetColor({ 255, 255, 255, 255 });
+        using namespace std::placeholders;
+
+        Image* imgNormal  = Manager::Get().CreateImage(owner, transform, Manager::Get()._btnNormal);
+        Image* imgPressed = Manager::Get().CreateImage(owner, transform, Manager::Get()._btnPressed);
+        Image* imgHovered = Manager::Get().CreateImage(owner, transform, Manager::Get()._btnHover);
+
+        _collisionArea = Manager::Get().CreateImage(owner, transform, nullptr);
+        _collisionArea->SetBlending(true);
+        _collisionArea->SetColor({ 0, 0, 0, 0 });
+
+        _imagesByState =
+        {
+          { ButtonState::NORMAL,   imgNormal  },
+          { ButtonState::PRESSED,  imgPressed },
+          { ButtonState::HOVERED,  imgHovered },
+          { ButtonState::DISABLED, imgPressed }
+        };
+
+        for (auto& kvp : _imagesByState)
+        {
+          kvp.second->SetSlicePoints({ 4, 4, 6, 6 });
+          kvp.second->SetDrawType(Image::DrawType::SLICED);
+          kvp.second->SetVisible(false);
+        }
+
+        SetState(ButtonState::NORMAL);
+
+        _collisionArea->_onMouseOverIntl = std::bind(&Button::BtnOverHandler,
+                                                     this,
+                                                     _1);
+
+        _collisionArea->_onMouseOutIntl  = std::bind(&Button::BtnOutHandler,
+                                                     this,
+                                                     _1);
+
+        _collisionArea->_onMouseDownIntl = std::bind(&Button::BtnDownHandler,
+                                                     this,
+                                                     _1);
+
+        _collisionArea->_onMouseUpIntl = std::bind(&Button::BtnUpHandler,
+                                                   this,
+                                                   _1);
+
+        //_text = Manager::Get().CreateText(owner, { transform.x, transform.y }, text);
+        //_text->SetAlignment(Text::Alignment::RIGHT);
+        //_text->SetColor({ 255, 255, 255, 255 });
+      }
+
+      void SetState(ButtonState newState)
+      {
+        _state = newState;
+
+        for (auto& kvp : _imagesByState)
+        {
+          kvp.second->SetVisible(false);
+        }
+
+        _imagesByState[_state]->SetVisible(true);
+
+        SetEnabled((_state != ButtonState::DISABLED));
+      }
+
+      void SetTransform(const SDL_Rect& transform) override
+      {
+        _localTransform = transform;
+        UpdateTransform();
+
+        for (auto& kvp : _imagesByState)
+        {
+          kvp.second->SetTransform(transform);
+        }
+
+        //_text->SetTransform(transform);
       }
 
     protected:
-      void DrawImpl() override
-      {
-      }
+      void DrawImpl() override {}
 
     private:
+      void BtnOverHandler(Element* sender)
+      {
+        SetState(ButtonState::HOVERED);
+      }
+
+      void BtnOutHandler(Element* sender)
+      {
+        SetState(ButtonState::NORMAL);
+      }
+
+      void BtnDownHandler(Element* sender)
+      {
+        SetState(ButtonState::PRESSED);
+      }
+
+      void BtnUpHandler(Element* sender)
+      {
+        SetState(ButtonState::NORMAL);
+      }
+
       Text* _text = nullptr;
+
+      std::map<ButtonState, Image*> _imagesByState;
+
+      Image* _collisionArea = nullptr;
+
+      ButtonState _state = ButtonState::NORMAL;
   };
 
-  // ===========================================================================
-  //                           GUI ELEMENTS CREATION
-  // ===========================================================================
+// =============================================================================
+//                           GUI ELEMENTS CREATION
+// =============================================================================
   Canvas* Manager::CreateCanvas(const SDL_Rect& transform)
   {
     std::unique_ptr<Canvas> canvas = std::make_unique<Canvas>(transform,
@@ -1484,9 +1609,18 @@ namespace RepaUI
     return static_cast<Text*>(c->Add(txt));
   }
 
-  // ===========================================================================
-  //                             IMPLEMENTATIONS
-  // ===========================================================================
+  Button* Manager::CreateButton(Canvas* canvas,
+                                const SDL_Rect& transform,
+                                const std::string& text)
+  {
+    Canvas* c = (canvas == nullptr) ? _screenCanvas.get() : canvas;
+    Button* btn = new Button(c, transform, text);
+    return static_cast<Button*>(c->Add(btn));
+  }
+
+// =============================================================================
+//                             IMPLEMENTATIONS
+// =============================================================================
   void Manager::Draw()
   {
     SDL_GetRenderDrawColor(_rendRef,
@@ -1624,9 +1758,9 @@ namespace RepaUI
     }
   }
 
-  // ===========================================================================
-  //                              SHORTCUTS
-  // ===========================================================================
+// =============================================================================
+//                              SHORTCUTS
+// =============================================================================
   void Init(SDL_Window* screenRef)
   {
     Manager::Get().Init(screenRef);
@@ -1661,9 +1795,16 @@ namespace RepaUI
     return Manager::Get().CreateText(canvas, pos, text);
   }
 
-  // ===========================================================================
-  //                                  BASE64
-  // ===========================================================================
+  Button* CreateButton(Canvas* canvas,
+                       const SDL_Rect& transform,
+                       const std::string& text)
+  {
+    return Manager::Get().CreateButton(canvas, transform, text);
+  }
+
+// =============================================================================
+//                                  BASE64
+// =============================================================================
 
 const std::string Manager::_base64Chars =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
