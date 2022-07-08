@@ -186,6 +186,10 @@ namespace RepaUI
       {
         SDL_Texture* res = nullptr;
         SDL_Surface* s = SDL_LoadBMP(fname.data());
+        if (s == nullptr)
+        {
+          SDL_Log("%s", SDL_GetError());
+        }
         res = SDL_CreateTextureFromSurface(_rendRef, s);
         SDL_FreeSurface(s);
         return res;
@@ -199,6 +203,10 @@ namespace RepaUI
         SDL_Texture* res = nullptr;
         SDL_Surface* s = SDL_LoadBMP(fname.data());
         SDL_SetColorKey(s, SDL_TRUE, SDL_MapRGB(s->format, rMask, gMask, bMask));
+        if (s == nullptr)
+        {
+          SDL_Log("%s", SDL_GetError());
+        }
         res = SDL_CreateTextureFromSurface(_rendRef, s);
         SDL_FreeSurface(s);
         return res;
@@ -215,6 +223,10 @@ namespace RepaUI
         }
         SDL_RWops* data = SDL_RWFromMem(bytes.data(), bytes.size());
         SDL_Surface* s = SDL_LoadBMP_RW(data, 1);
+        if (s == nullptr)
+        {
+          SDL_Log("%s", SDL_GetError());
+        }
         res = SDL_CreateTextureFromSurface(_rendRef, s);
         SDL_FreeSurface(s);
         return res;
@@ -234,6 +246,10 @@ namespace RepaUI
         }
         SDL_RWops* data = SDL_RWFromMem(bytes.data(), bytes.size());
         SDL_Surface* s = SDL_LoadBMP_RW(data, 1);
+        if (s == nullptr)
+        {
+          SDL_Log("%s", SDL_GetError());
+        }
         SDL_SetColorKey(s, SDL_TRUE, SDL_MapRGB(s->format, rMask, gMask, bMask));
         res = SDL_CreateTextureFromSurface(_rendRef, s);
         SDL_FreeSurface(s);
@@ -1475,25 +1491,38 @@ namespace RepaUI
       {
         using namespace std::placeholders;
 
+        // FIXME: fix base64 encoding
+
+        auto btnNorm    = Manager::Get().LoadImage("images/btn-normal.bmp",  255, 0, 255);
+        auto btnPressed = Manager::Get().LoadImage("images/btn-pressed.bmp", 255, 0, 255);
+        auto btnHover   = Manager::Get().LoadImage("images/btn-hover.bmp",   255, 0, 255);
+
+        Image* imgNormal  = Manager::Get().CreateImage(owner, transform, btnNorm);
+        imgNormal->SetSlicePoints({ 4, 4, 11, 11 });
+
+        Image* imgPressed = Manager::Get().CreateImage(owner, transform, btnPressed);
+        imgPressed->SetSlicePoints({ 4, 4, 15, 15 });
+
+        Image* imgHovered = Manager::Get().CreateImage(owner, transform, btnHover);
+        imgHovered->SetSlicePoints({ 4, 4, 11, 11 });
+
+        /*
         Image* imgNormal  = Manager::Get().CreateImage(owner, transform, Manager::Get()._btnNormal);
         Image* imgPressed = Manager::Get().CreateImage(owner, transform, Manager::Get()._btnPressed);
         Image* imgHovered = Manager::Get().CreateImage(owner, transform, Manager::Get()._btnHover);
+        */
 
-        CreateDisabledText(_disabledText.first,
-                           { transform.x + 2, transform.y + 2, transform.w, transform.h },
-                           { 255, 255, 255, 255 },
-                           text);
+        _textString = text;
 
-        CreateDisabledText(_disabledText.second,
-                           transform,
-                           { 120, 120, 120, 255 },
-                           text);
+        CreateDisabledText();
 
         _text = Manager::Get().CreateText(owner, { transform.x, transform.y }, text);
         _text->SetTransform(transform);
         _text->SetAlignment(Text::Alignment::CENTER);
         _text->SetColor({ 0, 0, 0, 255 });
-        _text->SetScale(2);
+        _text->SetScale(1);
+
+        _textOldTransform = _text->Transform();
 
         _collisionArea = Manager::Get().CreateImage(owner, transform, nullptr);
         _collisionArea->SetBlending(true);
@@ -1509,7 +1538,8 @@ namespace RepaUI
 
         for (auto& kvp : _imagesByState)
         {
-          kvp.second->SetSlicePoints({ 4, 4, 6, 6 });
+          //kvp.second->SetSlicePoints({ 4, 4, 6, 6 });
+          kvp.second->SetBlending(true);
           kvp.second->SetDrawType(Image::DrawType::SLICED);
           kvp.second->SetVisible(false);
         }
@@ -1519,7 +1549,14 @@ namespace RepaUI
         _collisionArea->_onMouseOverIntl =
         [this](Element* sender)
         {
-          SetState(ButtonState::HOVERED);
+          if (_clickStarted)
+          {
+            SetState(ButtonState::PRESSED);
+          }
+          else
+          {
+            SetState(ButtonState::HOVERED);
+          }
         };
 
         _collisionArea->_onMouseOutIntl =
@@ -1532,27 +1569,28 @@ namespace RepaUI
         [this](Element* sender)
         {
           SetState(ButtonState::PRESSED);
+
+          _clickStarted = true;
         };
 
         _collisionArea->_onMouseUpIntl =
         [this](Element* sender)
         {
           SetState(ButtonState::NORMAL);
+
+          _clickEnded = true;
+
+          if (_clickStarted && _clickEnded)
+          {
+            if (CanBeCalled(OnClicked))
+            {
+              OnClicked(this);
+            }
+          }
+
+          _clickStarted = false;
+          _clickEnded   = false;
         };
-      }
-
-      void SetState(ButtonState newState)
-      {
-        _state = newState;
-
-        for (auto& kvp : _imagesByState)
-        {
-          kvp.second->SetVisible(false);
-        }
-
-        _imagesByState[_state]->SetVisible(true);
-
-        SetEnabled((_state != ButtonState::DISABLED));
       }
 
       void SetTransform(const SDL_Rect& transform) override
@@ -1565,7 +1603,17 @@ namespace RepaUI
           kvp.second->SetTransform(transform);
         }
 
-        //_text->SetTransform(transform);
+        UpdateTextTransform(transform);
+      }
+
+      void Enable()
+      {
+        SetState(ButtonState::NORMAL);
+      }
+
+      void Disable()
+      {
+        SetState(ButtonState::DISABLED);
       }
 
       std::function<void(Button*)> OnClicked;
@@ -1575,17 +1623,77 @@ namespace RepaUI
       void DrawImpl() override {}
 
     private:
-      template <typename T>
-      void CreateDisabledText(T* which,
-                              const SDL_Rect& transform,
-                              const SDL_Color& color,
-                              const std::string& text)
+      void UpdateTextTransform(const SDL_Rect& transform)
       {
-        which = Manager::Get().CreateText(_owner, { transform.x, transform.y }, text);
-        which->SetTransform(transform);
-        which->SetAlignment(Text::Alignment::CENTER);
-        which->SetColor(color);
+        _text->SetTransform(transform);
+
+        _disabledText.first->SetTransform(transform);
+        _disabledText.second->SetTransform(transform);
       }
+
+      void CreateDisabledText()
+      {
+        auto CreateTextElement =
+        [this](const SDL_Rect& transform,
+               const SDL_Color& color,
+               const std::string& text)
+        {
+          Text* e = Manager::Get().CreateText(_owner, { transform.x, transform.y }, text);
+          e->SetTransform(transform);
+          e->SetAlignment(Text::Alignment::CENTER);
+          e->SetColor(color);
+          return e;
+        };
+
+        _disabledText.first = CreateTextElement({
+                                                  Transform().x + 2,
+                                                  Transform().y + 2,
+                                                  Transform().w,
+                                                  Transform().h
+                                                },
+                                                { 255, 255, 255, 255 },
+                                                _textString);
+
+        _disabledText.second = CreateTextElement(Transform(),
+                                                 { 120, 120, 120, 255 },
+                                                 _textString);
+      }
+
+      void SetState(ButtonState newState)
+      {
+        _state = newState;
+
+        bool textVisibility = (_state != ButtonState::DISABLED);
+
+        _disabledText.first->SetVisible(!textVisibility);
+        _disabledText.second->SetVisible(!textVisibility);
+
+        _text->SetVisible(textVisibility);
+
+        auto& t = _textOldTransform;
+
+        if (_state == ButtonState::PRESSED)
+        {
+          SDL_Rect newTransform = { t.x + 4, t.y + 4, t.w, t.h };
+          _text->SetTransform(newTransform);
+        }
+        else
+        {
+          _text->SetTransform(t);
+        }
+
+        for (auto& kvp : _imagesByState)
+        {
+          kvp.second->SetVisible(false);
+        }
+
+        _imagesByState[_state]->SetVisible(true);
+
+        _collisionArea->SetEnabled((_state != ButtonState::DISABLED));
+        //SetEnabled((_state != ButtonState::DISABLED));
+      }
+
+      SDL_Rect _textOldTransform;
 
       Text* _text = nullptr;
 
@@ -1596,6 +1704,11 @@ namespace RepaUI
       Image* _collisionArea = nullptr;
 
       ButtonState _state = ButtonState::NORMAL;
+
+      bool _clickStarted = false;
+      bool _clickEnded   = false;
+
+      std::string _textString;
   };
 
 // =============================================================================

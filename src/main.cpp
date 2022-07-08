@@ -75,15 +75,15 @@ This is line three
 )";
 */
 
-const std::string TestString ="This is one line";
+const std::string TestString ="This is one long line";
 
 void CreateGUI()
 {
-  auto sliceImg    = LoadImage("slice-test-big.bmp");
+  auto sliceImg    = LoadImage("images/slice-test-big.bmp");
   //auto sliceImg    = LoadImage("slice-test.bmp");
-  auto wndImg      = LoadImage("r-window.bmp");
-  auto checkersImg = LoadImage("checkers.bmp");
-  auto btnImg      = LoadImage("r-button.bmp");
+  auto wndImg      = LoadImage("images/r-window.bmp");
+  auto checkersImg = LoadImage("images/checkers.bmp");
+  auto btnImg      = LoadImage("images/r-button.bmp");
 
   auto canvas = RepaUI::CreateCanvas({ 0, 0, 500, 500 });
 
@@ -145,6 +145,11 @@ void CreateGUI()
   txt3->SetScale(2);
 
   auto btn = RepaUI::CreateButton(canvas2, { 50, 200, 200, 50 }, "Click Me!");
+  //btn->Disable();
+  btn->OnClicked = [](RepaUI::Button* sender)
+  {
+    SDL_Log("Clicked");
+  };
 
   elements.push_back(canvas);
   elements.push_back(canvas2);
