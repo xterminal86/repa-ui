@@ -135,10 +135,10 @@ namespace RepaUI
         _blankImage = LoadImageFromBase64(_pixelImageBase64);
         _font       = LoadImageFromBase64(_fontBase64, 255, 0, 255);
 
-        _btnNormal   = LoadImageFromBase64(_btnNormalBase64);
-        _btnPressed  = LoadImageFromBase64(_btnPressedBase64);
-        _btnHover    = LoadImageFromBase64(_btnHoverBase64);
-        _btnDisabled = _btnPressed;
+        _btnNormal   = LoadImageFromBase64(_btnNormalBase64, 255, 0, 255);
+        _btnPressed  = LoadImageFromBase64(_btnPressedBase64, 255, 0, 255);
+        _btnHover    = LoadImageFromBase64(_btnHoverBase64, 255, 0, 255);
+        _btnDisabled = LoadImageFromBase64(_btnDisabledBase64, 255, 0, 255);
       }
 
       void CutFontGlyphs()
@@ -396,6 +396,7 @@ namespace RepaUI
       const static std::string _btnNormalBase64;
       const static std::string _btnPressedBase64;
       const static std::string _btnHoverBase64;
+      const static std::string _btnDisabledBase64;
 
       friend class Element;
       friend class Canvas;
@@ -1491,26 +1492,23 @@ namespace RepaUI
       {
         using namespace std::placeholders;
 
-        // FIXME: fix base64 encoding
+        std::map<ButtonState, SDL_Texture*> images =
+        {
+          { ButtonState::NORMAL,   Manager::Get()._btnNormal   },
+          { ButtonState::PRESSED,  Manager::Get()._btnPressed  },
+          { ButtonState::HOVERED,  Manager::Get()._btnHover    },
+          { ButtonState::DISABLED, Manager::Get()._btnDisabled }
+        };
 
-        auto btnNorm    = Manager::Get().LoadImage("images/btn-normal.bmp",  255, 0, 255);
-        auto btnPressed = Manager::Get().LoadImage("images/btn-pressed.bmp", 255, 0, 255);
-        auto btnHover   = Manager::Get().LoadImage("images/btn-hover.bmp",   255, 0, 255);
-
-        Image* imgNormal  = Manager::Get().CreateImage(owner, transform, btnNorm);
-        imgNormal->SetSlicePoints({ 4, 4, 11, 11 });
-
-        Image* imgPressed = Manager::Get().CreateImage(owner, transform, btnPressed);
-        imgPressed->SetSlicePoints({ 4, 4, 15, 15 });
-
-        Image* imgHovered = Manager::Get().CreateImage(owner, transform, btnHover);
-        imgHovered->SetSlicePoints({ 4, 4, 11, 11 });
-
-        /*
-        Image* imgNormal  = Manager::Get().CreateImage(owner, transform, Manager::Get()._btnNormal);
-        Image* imgPressed = Manager::Get().CreateImage(owner, transform, Manager::Get()._btnPressed);
-        Image* imgHovered = Manager::Get().CreateImage(owner, transform, Manager::Get()._btnHover);
-        */
+        for (auto& kvp : images)
+        {
+          Image* img = Manager::Get().CreateImage(owner, transform, kvp.second);
+          img->SetSlicePoints({ 4, 4, 11, 11 });
+          img->SetDrawType(Image::DrawType::SLICED);
+          img->SetBlending(true);
+          img->SetVisible(false);
+          _imagesByState[kvp.first] = img;
+        }
 
         _textString = text;
 
@@ -1527,22 +1525,6 @@ namespace RepaUI
         _collisionArea = Manager::Get().CreateImage(owner, transform, nullptr);
         _collisionArea->SetBlending(true);
         _collisionArea->SetColor({ 0, 0, 0, 0 });
-
-        _imagesByState =
-        {
-          { ButtonState::NORMAL,   imgNormal  },
-          { ButtonState::PRESSED,  imgPressed },
-          { ButtonState::HOVERED,  imgHovered },
-          { ButtonState::DISABLED, imgPressed }
-        };
-
-        for (auto& kvp : _imagesByState)
-        {
-          //kvp.second->SetSlicePoints({ 4, 4, 6, 6 });
-          kvp.second->SetBlending(true);
-          kvp.second->SetDrawType(Image::DrawType::SLICED);
-          kvp.second->SetVisible(false);
-        }
 
         SetState(ButtonState::NORMAL);
 
@@ -1604,6 +1586,8 @@ namespace RepaUI
         }
 
         UpdateTextTransform(transform);
+
+        _collisionArea->SetTransform(transform);
       }
 
       void Enable()
@@ -1620,15 +1604,33 @@ namespace RepaUI
       std::function<void(Button*)> OnHold;
 
     protected:
-      void DrawImpl() override {}
+      void DrawImpl() override
+      {
+        _collisionArea->ShowOutline(_showOutline);
+
+        if (_showOutline)
+        {
+          _collisionArea->DrawOutline();
+        }
+      }
 
     private:
       void UpdateTextTransform(const SDL_Rect& transform)
       {
         _text->SetTransform(transform);
 
-        _disabledText.first->SetTransform(transform);
+        _tmp =
+        {
+          Transform().x + 2,
+          Transform().y + 2,
+          Transform().w,
+          Transform().h
+        };
+
+        _disabledText.first->SetTransform(_tmp);
         _disabledText.second->SetTransform(transform);
+
+        _textOldTransform = _text->Transform();
       }
 
       void CreateDisabledText()
@@ -1651,11 +1653,11 @@ namespace RepaUI
                                                   Transform().w,
                                                   Transform().h
                                                 },
-                                                { 255, 255, 255, 255 },
+                                                { 220, 220, 220, 255 },
                                                 _textString);
 
         _disabledText.second = CreateTextElement(Transform(),
-                                                 { 120, 120, 120, 255 },
+                                                 { 80, 80, 80, 255 },
                                                  _textString);
       }
 
@@ -1690,10 +1692,10 @@ namespace RepaUI
         _imagesByState[_state]->SetVisible(true);
 
         _collisionArea->SetEnabled((_state != ButtonState::DISABLED));
-        //SetEnabled((_state != ButtonState::DISABLED));
       }
 
       SDL_Rect _textOldTransform;
+      SDL_Rect _tmp;
 
       Text* _text = nullptr;
 
@@ -1946,38 +1948,81 @@ const std::string Manager::_pixelImageBase64 =
 "AAAAAAAD/AAD/AAD/AAAAAAAAAEJHUnMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAA////AA==";
 
+// =============================================================================
+
 const std::string Manager::_btnNormalBase64 =
-"Qk0WAgAAAAAAAIoAAAB8AAAACwAAAAsAAAABABgAAAAAAIwBAAATCwAAEwsAAAAAAAAAAAAAAAD/AAD/"
+"Qk2KAwAAAAAAAIoAAAB8AAAAEAAAABAAAAABABgAAAAAAAADAAATCwAAEwsAAAAAAAAAAAAAAAD/AAD/"
 "AAD/AAAAAAAAAEJHUnMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-"AAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoKCg"
-"oKCgoKCgoKCgoKCgoKCgoKCgoKCgtLS0AAAAAAAAAAAA8PDwoKCgoKCgoKCgoKCgoKCgoKCgtLS0tLS0"
-"AAAAAAAAAAAA8PDw8PDwoKCgoKCgoKCgoKCgtLS0tLS0tLS0AAAAAAAAAAAA8PDw8PDw8PDwyMjIyMjI"
-"yMjItLS0tLS0tLS0AAAAAAAAAAAA8PDw8PDw8PDwyMjIyMjIyMjItLS0tLS0tLS0AAAAAAAAAAAA8PDw"
-"8PDw8PDwyMjIyMjIyMjItLS0tLS0tLS0AAAAAAAAAAAA8PDw8PDw8PDw8PDw8PDw8PDw8PDwtLS0tLS0"
-"AAAAAAAAAAAA8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDwtLS0AAAAAAAAAAAA8PDw8PDw8PDw8PDw8PDw"
-"8PDw8PDw8PDw8PDwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+"AAACAAAAAAAAAAAAAAAAAAAA/wD//wD//wD//wD/TU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1N"
+"TU1NTU1N/wD//wD//wD/c3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3NzTU1N/wD//wD/"
+"mZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZc3NzTU1N/wD/v7+/v7+/v7+/v7+/v7+/"
+"v7+/v7+/v7+/v7+/v7+/v7+/v7+/mZmZc3NzTU1N5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl"
+"5eXl5eXlv7+/mZmZc3NzTU1N5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXlv7+/mZmZ"
+"c3NzTU1N5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXlv7+/mZmZc3NzTU1N5eXl5eXl"
+"5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXlv7+/mZmZc3NzTU1N5eXl5eXl5eXl5eXl5eXl5eXl"
+"5eXl5eXl5eXl5eXl5eXl5eXlv7+/mZmZc3NzTU1N5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl"
+"5eXl5eXlv7+/mZmZc3NzTU1N5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXlv7+/mZmZ"
+"c3NzTU1N5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXlv7+/mZmZc3NzTU1N5eXl5eXl"
+"5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXlv7+/mZmZc3Nz/wD/5eXl5eXl5eXl5eXl5eXl5eXl"
+"5eXl5eXl5eXl5eXl5eXl5eXlv7+/mZmZ/wD//wD/5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl"
+"5eXl5eXlv7+//wD//wD//wD/5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl/wD//wD/"
+"/wD//wD/";
 
 const std::string Manager::_btnPressedBase64 =
-"Qk0WAgAAAAAAAIoAAAB8AAAACwAAAAsAAAABABgAAAAAAIwBAAATCwAAEwsAAAAAAAAAAAAAAAD/AAD/"
+"Qk2KAwAAAAAAAIoAAAB8AAAAEAAAABAAAAABABgAAAAAAAADAAATCwAAEwsAAAAAAAAAAAAAAAD/AAD/"
 "AAD/AAAAAAAAAEJHUnMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-"AAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoKCg"
-"jIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMAAAAAAAAAAAAoKCgoKCgjIyMjIyMjIyMjIyMjIyMjIyMjIyM"
-"AAAAAAAAAAAAoKCgoKCgoKCgjIyMjIyMjIyMjIyMjIyMjIyMAAAAAAAAAAAAoKCgoKCgoKCgtLS0tLS0"
-"tLS0jIyMjIyMjIyMAAAAAAAAAAAAoKCgoKCgoKCgtLS0tLS0tLS0jIyMjIyMjIyMAAAAAAAAAAAAoKCg"
-"oKCgoKCgtLS0tLS0tLS0jIyMjIyMjIyMAAAAAAAAAAAAoKCgoKCgoKCgoKCgoKCgoKCgoKCgjIyMjIyM"
-"AAAAAAAAAAAAoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgjIyMAAAAAAAAAAAAoKCgoKCgoKCgoKCgoKCg"
-"oKCgoKCgoKCgoKCgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+"AAACAAAAAAAAAAAAAAAAAAAA/wD//wD//wD//wD/5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl"
+"5eXl5eXl/wD//wD//wD//wD/5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl/wD//wD/"
+"/wD//wD/5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl/wD//wD//wD//wD/5eXl5eXl"
+"5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl/wD//wD//wD//wD/5eXl5eXl5eXl5eXl5eXl5eXl"
+"5eXl5eXl5eXl5eXl5eXl5eXl/wD//wD//wD//wD/5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl"
+"5eXl5eXl/wD//wD//wD//wD/5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl/wD//wD/"
+"/wD//wD/5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl/wD//wD//wD//wD/5eXl5eXl"
+"5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl/wD//wD//wD//wD/5eXl5eXl5eXl5eXl5eXl5eXl"
+"5eXl5eXl5eXl5eXl5eXl5eXl/wD//wD//wD//wD/5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl"
+"5eXl5eXl/wD//wD//wD//wD/5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl/wD//wD/"
+"/wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD/"
+"/wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD/"
+"/wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD//wD/"
+"/wD//wD/";
 
 const std::string Manager::_btnHoverBase64 =
-"Qk0WAgAAAAAAAIoAAAB8AAAACwAAAAsAAAABABgAAAAAAIwBAAATCwAAEwsAAAAAAAAAAAAAAAD/AAD/"
+"Qk2KAwAAAAAAAIoAAAB8AAAAEAAAABAAAAABABgAAAAAAAADAAATCwAAEwsAAAAAAAAAAAAAAAD/AAD/"
 "AAD/AAAAAAAAAEJHUnMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-"AAACAAAAAAAAAAAAAAAAAAAAAP//AP//AP//AP//AP//AP//AP//AP//AP//AP//AP//AAAAAP//oKCg"
-"oKCgoKCgoKCgoKCgoKCgoKCgoKCgtLS0AP//AAAAAP//8PDwoKCgoKCgoKCgoKCgoKCgoKCgtLS0tLS0"
-"AP//AAAAAP//8PDw8PDwoKCgoKCgoKCgoKCgtLS0tLS0tLS0AP//AAAAAP//8PDw8PDw8PDwyMjIyMjI"
-"yMjItLS0tLS0tLS0AP//AAAAAP//8PDw8PDw8PDwyMjIyMjIyMjItLS0tLS0tLS0AP//AAAAAP//8PDw"
-"8PDw8PDwyMjIyMjIyMjItLS0tLS0tLS0AP//AAAAAP//8PDw8PDw8PDw8PDw8PDw8PDw8PDwtLS0tLS0"
-"AP//AAAAAP//8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDwtLS0AP//AAAAAP//8PDw8PDw8PDw8PDw8PDw"
-"8PDw8PDw8PDw8PDwAP//AAAAAP//AP//AP//AP//AP//AP//AP//AP//AP//AP//AP//AAAA";
+"AAACAAAAAAAAAAAAAAAAAAAA/wD//wD//wD//wD/TU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1N"
+"TU1NTU1N/wD//wD//wD/c3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3NzTU1N/wD//wD/"
+"mZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZc3NzTU1N/wD/v7+/v7+/v7+/v7+/v7+/"
+"v7+/v7+/v7+/v7+/v7+/v7+/v7+/mZmZc3NzTU1Nkfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2"
+"kfb2kfb2v7+/mZmZc3NzTU1Nkfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2v7+/mZmZ"
+"c3NzTU1Nkfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2v7+/mZmZc3NzTU1Nkfb2kfb2"
+"kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2v7+/mZmZc3NzTU1Nkfb2kfb2kfb2kfb2kfb2kfb2"
+"kfb2kfb2kfb2kfb2kfb2kfb2v7+/mZmZc3NzTU1Nkfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2"
+"kfb2kfb2v7+/mZmZc3NzTU1Nkfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2v7+/mZmZ"
+"c3NzTU1Nkfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2v7+/mZmZc3NzTU1Nkfb2kfb2"
+"kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2v7+/mZmZc3Nz/wD/kfb2kfb2kfb2kfb2kfb2kfb2"
+"kfb2kfb2kfb2kfb2kfb2kfb2v7+/mZmZ/wD//wD/kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2"
+"kfb2kfb2v7+//wD//wD//wD/kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2kfb2/wD//wD/"
+"/wD//wD/";
+
+const std::string Manager::_btnDisabledBase64 =
+"Qk2KAwAAAAAAAIoAAAB8AAAAEAAAABAAAAABABgAAAAAAAADAAATCwAAEwsAAAAAAAAAAAAAAAD/AAD/"
+"AAD/AAAAAAAAAEJHUnMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+"AAACAAAAAAAAAAAAAAAAAAAA/wD//wD//wD//wD/NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2"
+"NjY2NjY2/wD//wD//wD/U1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTNjY2/wD//wD/"
+"b29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vb29vU1NTNjY2/wD/jIyMjIyMjIyMjIyMjIyM"
+"jIyMjIyMjIyMjIyMjIyMjIyMjIyMb29vU1NTNjY2qKioqKioqKioqKioqKioqKioqKioqKioqKioqKio"
+"qKioqKiojIyMb29vU1NTNjY2qKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKiojIyMb29v"
+"U1NTNjY2qKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKiojIyMb29vU1NTNjY2qKioqKio"
+"qKioqKioqKioqKioqKioqKioqKioqKioqKioqKiojIyMb29vU1NTNjY2qKioqKioqKioqKioqKioqKio"
+"qKioqKioqKioqKioqKioqKiojIyMb29vU1NTNjY2qKioqKioqKioqKioqKioqKioqKioqKioqKioqKio"
+"qKioqKiojIyMb29vU1NTNjY2qKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKiojIyMb29v"
+"U1NTNjY2qKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKiojIyMb29vU1NTNjY2qKioqKio"
+"qKioqKioqKioqKioqKioqKioqKioqKioqKioqKiojIyMb29vU1NT/wD/qKioqKioqKioqKioqKioqKio"
+"qKioqKioqKioqKioqKioqKiojIyMb29v/wD//wD/qKioqKioqKioqKioqKioqKioqKioqKioqKioqKio"
+"qKioqKiojIyM/wD//wD//wD/qKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKio/wD//wD/"
+"/wD//wD/";
+
+// =============================================================================
 
 const std::string Manager::_fontBase64 =
 "Qk2KkAAAAAAAAIoAAAB8AAAAgAAAAGAAAAABABgAAAAAAACQAAAjLgAAIy4AAAAAAAAAAAAAAAD/AAD/"
