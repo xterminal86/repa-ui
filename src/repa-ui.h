@@ -104,7 +104,7 @@ namespace RepaUI
                           SDL_Texture* image);
 
       Text* CreateText(Canvas* canvas,
-                       const SDL_Point& pos,
+                       const SDL_Rect& transform,
                        const std::string& text);
 
       Button* CreateButton(Canvas* canvas,
@@ -1245,13 +1245,15 @@ namespace RepaUI
       {
         LEFT = 0,
         CENTER,
-        RIGHT
+        RIGHT,
+        TOP,
+        BOTTOM
       };
 
       Text(Canvas* owner,
-           const SDL_Point& pos,
+           const SDL_Rect& transform,
            const std::string& text)
-        : Element(owner, { pos.x, pos.y, 0, 0 })
+        : Element(owner, transform)
       {
         _text = text;
 
@@ -1259,12 +1261,12 @@ namespace RepaUI
         _scale = 1.0f;
 
         StoreLines();
-        CalculateRenderTransform();
       }
 
-      void SetAlignment(Alignment al)
+      void SetAlignment(Alignment alH, Alignment alV)
       {
-        _alignment = al;
+        _alignmentH = alH;
+        _alignmentV = alV;
       }
 
       void SetColor(const SDL_Color& c)
@@ -1276,8 +1278,6 @@ namespace RepaUI
       {
         _scale = scale;
         _scale = Clamp<uint8_t>(_scale, 1, 255);
-
-        CalculateRenderTransform();
       }
 
       void SetText(const std::string& text)
@@ -1285,7 +1285,6 @@ namespace RepaUI
         _text = text;
 
         StoreLines();
-        CalculateRenderTransform();
       }
 
       const std::string& GetText()
@@ -1369,16 +1368,6 @@ namespace RepaUI
         }
       }
 
-      void CalculateRenderTransform()
-      {
-        auto& t = Transform();
-
-        int w = _textMaxStringLen * Manager::Get().FontW * _scale;
-        int h = _textLines.size() * Manager::Get().FontH * _scale;
-
-        SetTransform({ t.x, t.y, w, h });
-      }
-
       void DrawText()
       {
         int offsetX = 0;
@@ -1387,13 +1376,14 @@ namespace RepaUI
         auto& fw = Manager::Get().FontW;
         auto& fh = Manager::Get().FontH;
 
+        int diffV = (Transform().h - _textLines.size() * fh);
+        int middlePointV = diffV * 0.5f;
+
         for (auto& line : _textLines)
         {
-          int lineLen = line.length();
-          int diff = ((_textMaxStringLen - lineLen) == 0)
-                     ? fw
-                     : (_textMaxStringLen - lineLen) * fw;
-          int middlePoint = (int)((float)diff * 0.5f);
+          int diffH = (Transform().w - line.length() * fw);
+
+          int middlePointH = diffH * 0.5f;
 
           for (auto& c : line)
           {
@@ -1401,43 +1391,34 @@ namespace RepaUI
 
             _glyphSrc = { gi->X, gi->Y, fw, fh };
 
-            switch (_alignment)
+            _glyphDst =
             {
-              case Alignment::LEFT:
-              {
-                _glyphDst =
-                {
-                  offsetX,
-                  offsetY,
-                  fw,
-                  fh
-                };
-              }
-              break;
+              offsetX,
+              offsetY,
+              fw,
+              fh
+            };
 
+            switch (_alignmentH)
+            {
               case Alignment::RIGHT:
-              {
-                _glyphDst =
-                {
-                  offsetX + diff,
-                  offsetY,
-                  fw,
-                  fh
-                };
-              }
-              break;
+                _glyphDst.x += diffH;
+                break;
 
               case Alignment::CENTER:
-              {
-                _glyphDst =
-                {
-                  offsetX + middlePoint,
-                  offsetY,
-                  fw,
-                  fh
-                };
-              }
-              break;
+                _glyphDst.x += middlePointH;
+                break;
+            }
+
+            switch (_alignmentV)
+            {
+              case Alignment::CENTER:
+                _glyphDst.y += middlePointV;
+                break;
+
+              case Alignment::BOTTOM:
+                _glyphDst.y += diffV;
+                break;
             }
 
             SDL_RenderCopy(_rendRef,
@@ -1468,7 +1449,8 @@ namespace RepaUI
 
       size_t _textMaxStringLen = 0;
 
-      Alignment _alignment = Alignment::LEFT;
+      Alignment _alignmentH = Alignment::LEFT;
+      Alignment _alignmentV = Alignment::TOP;
   };
 
 // =============================================================================
@@ -1516,7 +1498,7 @@ namespace RepaUI
 
         _text = Manager::Get().CreateText(owner, { transform.x, transform.y }, text);
         _text->SetTransform(transform);
-        _text->SetAlignment(Text::Alignment::CENTER);
+        _text->SetAlignment(Text::Alignment::CENTER, Text::Alignment::CENTER);
         _text->SetColor({ 0, 0, 0, 255 });
         _text->SetScale(1);
 
@@ -1590,14 +1572,9 @@ namespace RepaUI
         _collisionArea->SetTransform(transform);
       }
 
-      void Enable()
+      void SetEnabled(bool val)
       {
-        SetState(ButtonState::NORMAL);
-      }
-
-      void Disable()
-      {
-        SetState(ButtonState::DISABLED);
+        SetState(val ? ButtonState::NORMAL : ButtonState::DISABLED);
       }
 
       std::function<void(Button*)> OnClicked;
@@ -1642,7 +1619,7 @@ namespace RepaUI
         {
           Text* e = Manager::Get().CreateText(_owner, { transform.x, transform.y }, text);
           e->SetTransform(transform);
-          e->SetAlignment(Text::Alignment::CENTER);
+          e->SetAlignment(Text::Alignment::CENTER, Text::Alignment::CENTER);
           e->SetColor(color);
           return e;
         };
@@ -1664,6 +1641,8 @@ namespace RepaUI
       void SetState(ButtonState newState)
       {
         _state = newState;
+
+        _enabled = (newState == ButtonState::NORMAL);
 
         bool textVisibility = (_state != ButtonState::DISABLED);
 
@@ -1735,11 +1714,11 @@ namespace RepaUI
   }
 
   Text* Manager::CreateText(Canvas* canvas,
-                            const SDL_Point& pos,
+                            const SDL_Rect& transform,
                             const std::string& text)
   {
     Canvas* c = (canvas == nullptr) ? _screenCanvas.get() : canvas;
-    Text* txt = new Text(c, pos, text);
+    Text* txt = new Text(c, transform, text);
     return static_cast<Text*>(c->Add(txt));
   }
 
@@ -1923,10 +1902,10 @@ namespace RepaUI
   }
 
   Text* CreateText(Canvas* canvas,
-                   const SDL_Point& pos,
+                   const SDL_Rect& transform,
                    const std::string& text)
   {
-    return Manager::Get().CreateText(canvas, pos, text);
+    return Manager::Get().CreateText(canvas, transform, text);
   }
 
   Button* CreateButton(Canvas* canvas,

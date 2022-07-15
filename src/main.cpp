@@ -77,6 +77,10 @@ This is line three
 
 const std::string TestString ="This is one long line";
 
+const std::string StrLeft   = "This is left aligned";
+const std::string StrCenter = "This is center aligned";
+const std::string StrRight  = "This is right aligned";
+
 void CreateGUI()
 {
   auto sliceImg    = LoadImage("images/slice-test-big.bmp");
@@ -132,23 +136,25 @@ void CreateGUI()
   img6->OnMouseOut  = OutTest;
   img6->SetColor({ 64, 64, 64, 255 });
 
-  auto txt = RepaUI::CreateText(canvas2, { 100, 100 }, TestString);
-  txt->SetAlignment(RepaUI::Text::Alignment::LEFT);
-  txt->SetScale(2);
+  auto txt = RepaUI::CreateText(canvas2, { 0, 100, 400, 100 }, StrLeft);
+  txt->SetAlignment(RepaUI::Text::Alignment::LEFT, RepaUI::Text::Alignment::CENTER);
+  txt->SetScale(1);
 
-  auto txt2 = RepaUI::CreateText(canvas2, { 100, 200 }, TestString);
-  txt2->SetAlignment(RepaUI::Text::Alignment::CENTER);
-  txt2->SetScale(2);
+  auto txt2 = RepaUI::CreateText(canvas2, { 0, 200, 400, 100 }, StrCenter);
+  txt2->SetAlignment(RepaUI::Text::Alignment::CENTER, RepaUI::Text::Alignment::CENTER);
+  txt2->SetScale(1);
 
-  auto txt3 = RepaUI::CreateText(canvas2, { 100, 300 }, TestString);
-  txt3->SetAlignment(RepaUI::Text::Alignment::RIGHT);
-  txt3->SetScale(2);
+  auto txt3 = RepaUI::CreateText(canvas2, { 0, 300, 400, 100 }, StrRight);
+  txt3->SetAlignment(RepaUI::Text::Alignment::RIGHT, RepaUI::Text::Alignment::CENTER);
+  txt3->SetScale(1);
 
-  auto btn = RepaUI::CreateButton(canvas2, { 50, 200, 200, 50 }, "Click Me!");
-  //btn->Disable();
-  btn->OnClicked = [](RepaUI::Button* sender)
+  auto btn2 = RepaUI::CreateButton(canvas2, { 250, 400, 200, 50 }, "Disabled");
+  btn2->SetEnabled(false);
+
+  auto btn = RepaUI::CreateButton(canvas2, { 50, 400, 200, 50 }, "Click Me!");
+  btn->OnClicked = [btn2](RepaUI::Button* sender)
   {
-    SDL_Log("Clicked");
+    btn2->SetEnabled(!btn2->IsEnabled());
   };
 
   elements.push_back(canvas);
