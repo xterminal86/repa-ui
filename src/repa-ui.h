@@ -1625,8 +1625,8 @@ namespace RepaUI
         };
 
         _disabledText.first = CreateTextElement({
-                                                  Transform().x + 2,
-                                                  Transform().y + 2,
+                                                  Transform().x + 1,
+                                                  Transform().y + 1,
                                                   Transform().w,
                                                   Transform().h
                                                 },
