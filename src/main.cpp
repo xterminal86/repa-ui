@@ -138,15 +138,15 @@ void CreateGUI()
 
   auto txt = RepaUI::CreateText(canvas2, { 0, 100, 400, 100 }, StrLeft);
   txt->SetAlignment(RepaUI::Text::AlignmentH::LEFT, RepaUI::Text::AlignmentV::CENTER);
-  txt->SetScale(1);
+  txt->SetScale(2);
 
   auto txt2 = RepaUI::CreateText(canvas2, { 0, 200, 400, 100 }, StrCenter);
   txt2->SetAlignment(RepaUI::Text::AlignmentH::CENTER, RepaUI::Text::AlignmentV::CENTER);
-  txt2->SetScale(1);
+  txt2->SetScale(2);
 
   auto txt3 = RepaUI::CreateText(canvas2, { 0, 300, 400, 100 }, StrRight);
   txt3->SetAlignment(RepaUI::Text::AlignmentH::RIGHT, RepaUI::Text::AlignmentV::CENTER);
-  txt3->SetScale(1);
+  txt3->SetScale(2);
 
   auto btn2 = RepaUI::CreateButton(canvas2, { 250, 400, 200, 50 }, "Disabled");
   btn2->SetEnabled(false);

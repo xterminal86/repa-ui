@@ -1316,14 +1316,6 @@ namespace RepaUI
 
         _srcTexture = { 0, 0, _transform.w, _transform.h };
 
-        _dstFinal =
-        {
-          _renderTransform.x,
-          _renderTransform.y,
-          _transform.w * _scale,
-          _transform.h * _scale
-        };
-
         SDL_RenderSetClipRect(_rendRef, &_srcTexture);
 
         DrawText();
@@ -1331,6 +1323,44 @@ namespace RepaUI
         SDL_SetRenderTarget(_rendRef, old);
 
         Manager::Get().PopClipRect();
+
+        _dstFinal =
+        {
+          _renderTransform.x,
+          _renderTransform.y,
+          _transform.w,
+          _transform.h
+        };
+
+        switch (_alignmentH)
+        {
+          case AlignmentH::CENTER:
+          {
+            _dstFinal.x = (_dstFinal.x + _transform.w * 0.5f) - (_textMaxStringLen * Manager::Get().FontW * _scale) * 0.5f;
+          }
+          break;
+
+          case AlignmentH::RIGHT:
+          {
+            _dstFinal.x = (_dstFinal.x + _transform.w) - (_textMaxStringLen * Manager::Get().FontW * _scale);
+          }
+          break;
+        }
+
+        switch (_alignmentV)
+        {
+          case AlignmentV::CENTER:
+          {
+            _dstFinal.y = (_dstFinal.y + _transform.h * 0.5f) - (_textLines.size() * Manager::Get().FontH * _scale) * 0.5f;
+          }
+          break;
+
+          case AlignmentV::BOTTOM:
+          {
+            _dstFinal.y = (_dstFinal.y + _transform.h) - Manager::Get().FontH * _scale;
+          }
+          break;
+        }
 
         SDL_RenderCopy(_rendRef,
                        Manager::Get()._renderTempTexture,
@@ -1381,15 +1411,8 @@ namespace RepaUI
         auto& fw = Manager::Get().FontW;
         auto& fh = Manager::Get().FontH;
 
-        int diffV = (Transform().h - _textLines.size() * fh);
-        int middlePointV = diffV * 0.5f;
-
         for (auto& line : _textLines)
         {
-          int diffH = (Transform().w - line.length() * fw);
-
-          int middlePointH = diffH * 0.5f;
-
           for (auto& c : line)
           {
             auto gi = Manager::Get().GetCharData(c);
@@ -1400,42 +1423,20 @@ namespace RepaUI
             {
               offsetX,
               offsetY,
-              fw,
-              fh
+              fw * _scale,
+              fh * _scale
             };
-
-            switch (_alignmentH)
-            {
-              case AlignmentH::RIGHT:
-                _glyphDst.x += diffH;
-                break;
-
-              case AlignmentH::CENTER:
-                _glyphDst.x += middlePointH;
-                break;
-            }
-
-            switch (_alignmentV)
-            {
-              case AlignmentV::CENTER:
-                _glyphDst.y += middlePointV;
-                break;
-
-              case AlignmentV::BOTTOM:
-                _glyphDst.y += diffV;
-                break;
-            }
 
             SDL_RenderCopy(_rendRef,
                            Manager::Get()._font,
                           &_glyphSrc,
                           &_glyphDst);
 
-            offsetX += fw;
+            offsetX += (fw * _scale);
           }
 
           offsetX = 0;
-          offsetY += fh;
+          offsetY += (fh * _scale);
         }
       }
 
