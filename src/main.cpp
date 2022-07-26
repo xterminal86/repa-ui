@@ -137,15 +137,15 @@ void CreateGUI()
   img6->SetColor({ 64, 64, 64, 255 });
 
   auto txt = RepaUI::CreateText(canvas2, { 0, 100, 400, 100 }, StrLeft);
-  txt->SetAlignment(RepaUI::Text::Alignment::LEFT, RepaUI::Text::Alignment::CENTER);
+  txt->SetAlignment(RepaUI::Text::AlignmentH::LEFT, RepaUI::Text::AlignmentV::CENTER);
   txt->SetScale(1);
 
   auto txt2 = RepaUI::CreateText(canvas2, { 0, 200, 400, 100 }, StrCenter);
-  txt2->SetAlignment(RepaUI::Text::Alignment::CENTER, RepaUI::Text::Alignment::CENTER);
+  txt2->SetAlignment(RepaUI::Text::AlignmentH::CENTER, RepaUI::Text::AlignmentV::CENTER);
   txt2->SetScale(1);
 
   auto txt3 = RepaUI::CreateText(canvas2, { 0, 300, 400, 100 }, StrRight);
-  txt3->SetAlignment(RepaUI::Text::Alignment::RIGHT, RepaUI::Text::Alignment::CENTER);
+  txt3->SetAlignment(RepaUI::Text::AlignmentH::RIGHT, RepaUI::Text::AlignmentV::CENTER);
   txt3->SetScale(1);
 
   auto btn2 = RepaUI::CreateButton(canvas2, { 250, 400, 200, 50 }, "Disabled");
@@ -170,6 +170,7 @@ void CreateGUI()
   elements.push_back(txt2);
   elements.push_back(txt3);
   elements.push_back(btn);
+  elements.push_back(btn2);
 
   elementToControl = elements[controlIndex];
   elementToControl->ShowOutline(true);

@@ -1241,12 +1241,17 @@ namespace RepaUI
   class Text : public Element
   {
     public:
-      enum class Alignment
+      enum class AlignmentH
       {
         LEFT = 0,
         CENTER,
-        RIGHT,
-        TOP,
+        RIGHT
+      };
+
+      enum class AlignmentV
+      {
+        TOP = 0,
+        CENTER,
         BOTTOM
       };
 
@@ -1263,7 +1268,7 @@ namespace RepaUI
         StoreLines();
       }
 
-      void SetAlignment(Alignment alH, Alignment alV)
+      void SetAlignment(AlignmentH alH, AlignmentV alV)
       {
         _alignmentH = alH;
         _alignmentV = alV;
@@ -1401,22 +1406,22 @@ namespace RepaUI
 
             switch (_alignmentH)
             {
-              case Alignment::RIGHT:
+              case AlignmentH::RIGHT:
                 _glyphDst.x += diffH;
                 break;
 
-              case Alignment::CENTER:
+              case AlignmentH::CENTER:
                 _glyphDst.x += middlePointH;
                 break;
             }
 
             switch (_alignmentV)
             {
-              case Alignment::CENTER:
+              case AlignmentV::CENTER:
                 _glyphDst.y += middlePointV;
                 break;
 
-              case Alignment::BOTTOM:
+              case AlignmentV::BOTTOM:
                 _glyphDst.y += diffV;
                 break;
             }
@@ -1449,8 +1454,8 @@ namespace RepaUI
 
       size_t _textMaxStringLen = 0;
 
-      Alignment _alignmentH = Alignment::LEFT;
-      Alignment _alignmentV = Alignment::TOP;
+      AlignmentH _alignmentH = AlignmentH::CENTER;
+      AlignmentV _alignmentV = AlignmentV::CENTER;
   };
 
 // =============================================================================
@@ -1498,7 +1503,7 @@ namespace RepaUI
 
         _text = Manager::Get().CreateText(owner, { transform.x, transform.y }, text);
         _text->SetTransform(transform);
-        _text->SetAlignment(Text::Alignment::CENTER, Text::Alignment::CENTER);
+        _text->SetAlignment(Text::AlignmentH::CENTER, Text::AlignmentV::CENTER);
         _text->SetColor({ 0, 0, 0, 255 });
         _text->SetScale(1);
 
@@ -1619,7 +1624,7 @@ namespace RepaUI
         {
           Text* e = Manager::Get().CreateText(_owner, { transform.x, transform.y }, text);
           e->SetTransform(transform);
-          e->SetAlignment(Text::Alignment::CENTER, Text::Alignment::CENTER);
+          e->SetAlignment(Text::AlignmentH::CENTER, Text::AlignmentV::CENTER);
           e->SetColor(color);
           return e;
         };
